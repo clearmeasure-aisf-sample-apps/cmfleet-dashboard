@@ -22,7 +22,8 @@ server of its own.
 | Dotted, "Asleep" | Switched off on purpose |
 | "1 gap" | Something the system never had, such as code metrics. Counted, never coloured: colour is for what stopped working |
 
-Each tile shows what runs in production and for how long, and what is broken. The rest (every release in every
+A system's box in the landscape and its name on its tile open that system's runtime view (its own dashboard where it
+names none). Each tile shows what runs in production and for how long, and what is broken. The rest (every release in every
 environment, gaps, what is only observed, intended variances, cost, links) opens on demand. A system that names a
 public health address in the fleet's registry is asked from the reader's browser, so that line is true now and not
 as of the last reading.
