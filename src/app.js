@@ -165,11 +165,12 @@ function drawShared(data, facts) {
   }));
   const limits = limitsInUse(data.shared.limits || []);
   byId('limits').replaceChildren(...limits.used.map((limit) => {
-    const { share, over } = limitShare(limit);
-    return el('div', { class: 'limit' }, [
+    const { share, over, full } = limitShare(limit);
+    const note = over ? 'over the limit' : full ? 'full: the next one cannot be made' : '';
+    return el('div', { class: 'limit', 'data-limit': limit.limit }, [
       el('div', { class: 'name' }, [el('b', { class: 'num', text: `${limit.used} of ${limit.of}` }), ` ${limit.limit}`]),
       el('div', { class: `bar ${over ? 'over' : ''}` }, [el('i', { style: `width:${share}%` })]),
-      el('div', { class: 'where', text: limit.where || '' }),
+      el('div', { class: 'where', text: [limit.where, note].filter(Boolean).join(' · ') }),
     ]);
   }));
   byId('unused').textContent = limits.unused ? `${plural(limits.unused, 'other limit', 'other limits')} with nothing used.` : '';

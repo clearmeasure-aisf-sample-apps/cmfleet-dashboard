@@ -152,11 +152,13 @@ export function withoutSlug(title, slug) {
   return title.startsWith(`${slug}: `) ? title.slice(slug.length + 2) : title;
 }
 
+// A limit that is used up is full: nothing has stopped, but the next system that needs one cannot have it. Over the
+// limit is the state that gets colour.
 export function limitShare(limit) {
   const used = Number(limit.used);
   const of = Number(limit.of);
-  if (!Number.isFinite(used) || !Number.isFinite(of) || of <= 0) return { share: 0, over: false };
-  return { share: Math.min(100, Math.round((100 * used) / of)), over: used > of };
+  if (!Number.isFinite(used) || !Number.isFinite(of) || of <= 0) return { share: 0, over: false, full: false };
+  return { share: Math.min(100, Math.round((100 * used) / of)), over: used > of, full: used === of };
 }
 
 // The limits worth a bar are the ones something uses; the rest are counted, so a quota nobody touches takes no room.

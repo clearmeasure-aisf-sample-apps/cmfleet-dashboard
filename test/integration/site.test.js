@@ -177,6 +177,27 @@ test('a system that names a health address is probed from the page', async () =>
   });
 });
 
+test('a limit that is used up says so, and only a limit that is passed gets colour', async () => {
+  const data = await dataWith((fleet) => {
+    fleet.shared.limits = [
+      { limit: 'Static Web Apps on the Free plan', where: 'centralus', used: '10', of: '10' },
+      { limit: 'Container Apps environments', where: 'southcentralus', used: '2', of: '1' },
+      { limit: 'vCPUs', where: 'southcentralus', used: '0', of: '65' },
+    ];
+    return fleet;
+  });
+  await withPage(data, SOON_AFTER, async (page) => {
+    const full = page.locator('.limit[data-limit="Static Web Apps on the Free plan"]');
+    assert.equal(await full.locator('.where').textContent(), 'centralus · full: the next one cannot be made');
+    assert.equal(await full.locator('.bar.over').count(), 0);
+    const over = page.locator('.limit[data-limit="Container Apps environments"]');
+    assert.equal(await over.locator('.where').textContent(), 'southcentralus · over the limit');
+    assert.equal(await over.locator('.bar.over').count(), 1);
+    assert.equal(await page.locator('.limit').count(), 2);
+    assert.equal(await page.locator('#unused').textContent(), '1 other limit with nothing used.');
+  });
+});
+
 test('the page fits a phone: nothing scrolls sideways', async () => {
   const data = await dataWith();
   const server = await serve({ site, data });

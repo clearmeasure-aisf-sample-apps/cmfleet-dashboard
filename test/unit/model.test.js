@@ -157,10 +157,11 @@ test('a title loses the name of the system it is shown under', () => {
 });
 
 test('a limit is a share of what is allowed, and says when it is over', () => {
-  assert.deepEqual(limitShare({ used: '3', of: '20' }), { share: 15, over: false });
-  assert.deepEqual(limitShare({ used: '12', of: '10' }), { share: 100, over: true });
-  assert.deepEqual(limitShare({ used: 'n/a', of: '10' }), { share: 0, over: false });
-  assert.deepEqual(limitShare({ used: '1', of: '0' }), { share: 0, over: false });
+  assert.deepEqual(limitShare({ used: '3', of: '20' }), { share: 15, over: false, full: false });
+  assert.deepEqual(limitShare({ used: '10', of: '10' }), { share: 100, over: false, full: true });
+  assert.deepEqual(limitShare({ used: '12', of: '10' }), { share: 100, over: true, full: false });
+  assert.deepEqual(limitShare({ used: 'n/a', of: '10' }), { share: 0, over: false, full: false });
+  assert.deepEqual(limitShare({ used: '1', of: '0' }), { share: 0, over: false, full: false });
 });
 
 test('a health probe is said in one word', () => {
