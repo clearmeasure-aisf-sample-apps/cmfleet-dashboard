@@ -147,6 +147,12 @@ export function serviceState(service, stale) {
   return service.state === 'critical' || service.state === 'attention' ? service.state : 'ok';
 }
 
+// Where a system's name leads: its runtime view (what runs in production and how it is), or its own dashboard when
+// it names no runtime view. Nothing when it has neither.
+export function systemLink(system) {
+  return system.runtimeView || system.dashboard || '';
+}
+
 // A title the fleet wrote starts with the system's name; on the system's own tile that is said already.
 export function withoutSlug(title, slug) {
   return title.startsWith(`${slug}: `) ? title.slice(slug.length + 2) : title;

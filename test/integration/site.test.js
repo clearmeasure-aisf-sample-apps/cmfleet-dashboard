@@ -177,6 +177,23 @@ test('a system that names a health address is probed from the page', async () =>
   });
 });
 
+test('the name of a system opens its runtime view, its dashboard when it names none, and nothing when it has neither', async () => {
+  const data = await dataWith((fleet) => {
+    Object.assign(fleet.systems[0], { dashboard: 'https://one.example/', runtimeView: 'https://one.example/#runtime/prod' });
+    Object.assign(fleet.systems[1], { dashboard: 'https://two.example/', runtimeView: '' });
+    Object.assign(fleet.systems[2], { dashboard: '', runtimeView: '' });
+    return fleet;
+  });
+  const fleet = JSON.parse(await readFile(join(data, 'fleet.json'), 'utf8'));
+  await withPage(data, SOON_AFTER, async (page) => {
+    const [first, second, third] = fleet.systems.map((system) => tile(page, system.slug));
+    assert.equal(await first.locator('h3 a').getAttribute('href'), 'https://one.example/#runtime/prod');
+    assert.deepEqual(await first.locator('.links a').evaluateAll((all) => all.slice(0, 2).map((a) => a.textContent)), ['Runtime view', 'Its dashboard']);
+    assert.equal(await second.locator('h3 a').getAttribute('href'), 'https://two.example/');
+    assert.equal(await third.locator('h3 a').count(), 0);
+  });
+});
+
 test('a limit that is used up says so, and only a limit that is passed gets colour', async () => {
   const data = await dataWith((fleet) => {
     fleet.shared.limits = [

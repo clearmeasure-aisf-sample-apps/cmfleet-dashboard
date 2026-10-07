@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   STALE_AFTER_HOURS, ageHours, asked, counts, deploymentWord, displayState, fleetFacts, formatAge, healthWord, isStale,
-  limitShare, limitsInUse, observed, parseUtc, prodEnvironments, prodRows, releaseGrid, serviceState, withoutSlug,
+  limitShare, limitsInUse, observed, parseUtc, prodEnvironments, prodRows, releaseGrid, serviceState, systemLink,
+  withoutSlug,
 } from '../../src/model.js';
 
 const now = new Date('2026-10-07T12:00:00Z');
@@ -182,4 +183,10 @@ test('a deployment is said by its age, or by what it is doing when it has not fi
 test('only a limit something uses gets a bar', () => {
   const limits = [{ limit: 'a', used: '0', of: '1' }, { limit: 'b', used: '2', of: '1' }, { limit: 'c', used: 'n/a', of: '1' }];
   assert.deepEqual(limitsInUse(limits), { used: [limits[1]], unused: 2 });
+});
+
+test('a system leads to its runtime view, to its dashboard when it names none, and nowhere when it has neither', () => {
+  assert.equal(systemLink(system({ runtimeView: 'https://d.example/#runtime/prod', dashboard: 'https://d.example' })), 'https://d.example/#runtime/prod');
+  assert.equal(systemLink(system({ runtimeView: '', dashboard: 'https://d.example' })), 'https://d.example');
+  assert.equal(systemLink(system()), '');
 });

@@ -2,7 +2,7 @@
 // each thing means is decided in model.js; this file only puts it on the page.
 import {
   STATE_WORDS, asked, counts, displayState, fleetFacts, formatAge, healthWord, limitShare, limitsInUse, observed,
-  prodRows, releaseGrid, serviceState, withoutSlug,
+  prodRows, releaseGrid, serviceState, systemLink, withoutSlug,
 } from './model.js';
 
 const RELOAD_MINUTES = 5;
@@ -111,6 +111,7 @@ function drawLinks(system) {
       el('span', { text: `Owner: ${system.owner || 'not declared'}` }),
     ]),
     el('div', { class: 'links' }, [
+      link(system.runtimeView, 'Runtime view'),
       link(system.dashboard, 'Its dashboard') || el('span', { class: 'sub', text: 'No dashboard of its own' }),
       link(system.repositoryUrl, 'Repository'), link(system.space?.url, 'Octopus space'), link(system.findingsUrl, 'Findings'),
     ]),
@@ -142,7 +143,7 @@ function drawTile(system, facts, now) {
   const state = displayState(system, facts.stale);
   const tile = el('article', { class: 'tile', 'data-state': state, 'data-system': system.slug });
   tile.append(el('header', {}, [
-    system.dashboard ? el('h3', {}, [el('a', { href: system.dashboard, text: system.slug })]) : el('h3', { text: system.slug }),
+    systemLink(system) ? el('h3', {}, [el('a', { href: systemLink(system), text: system.slug })]) : el('h3', { text: system.slug }),
     el('span', { class: `pill ${state}`, text: STATE_WORDS[state] }),
   ]));
   tile.append(el('p', { class: 'sub', text: system.name }), drawProd(system, now));
