@@ -1,0 +1,118 @@
+# The integration build: on every pull request and every commit of main it runs the private build (build.ps1) and
+# nothing else, so what passes on a developer's machine passes here. On main it then hands the package to Octopus as
+# a release, which Octopus deploys to tdd by itself; uat and prod are promotions, each after a sign-off.
+# The version is MAJOR.MINOR.<run number>: the number the site serves (build.json), the package carries and the
+# release has.
+# Credentials: GitHub OIDC to Octopus only, in job release (environment "release", main only). No secret is stored.
+name: Build
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  MAJOR_VERSION: 1
+  MINOR_VERSION: 0
+
+jobs:
+  build:
+    # A named image: ubuntu-latest annotates every run while it moves to the next one.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6.0.1
+
+      - name: Version
+        id: version
+        run: echo "version=${MAJOR_VERSION}.${MINOR_VERSION}.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+      - name: A browser for the integration tests
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Private build
+        shell: pwsh
+        run: ./build.ps1 -Version '${{ steps.version.outputs.version }}' -Commit '${{ github.event.pull_request.head.sha || github.sha }}' -RepositoryUrl '${{ github.server_url }}/${{ github.repository }}' -BuildUrl '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
+
+      - name: The build's facts
+        run: |
+          {
+            echo '```json'
+            cat dist/site/build.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep the package
+        uses: actions/upload-artifact@v7
+        with:
+          name: package
+          path: out/cmfleet-dashboard.${{ steps.version.outputs.version }}.zip
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      # The Octopus actions look the space up by name.
+      OCTOPUS_SPACE: ${{ vars.OCTOPUS_SPACE_NAME }}
+      VERSION: ${{ needs.build.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: package
+          path: packages
+
+      - name: Sign in to Octopus
+        uses: OctopusDeploy/login@v2
+        with:
+          server: ${{ vars.OCTOPUS_URL }}
+          service_account_id: ${{ vars.OCTOPUS_SERVICE_ACCOUNT_ID }}
+
+      - name: Push the package
+        uses: OctopusDeploy/push-package-action@v4
+        with:
+          packages: packages/cmfleet-dashboard.${{ env.VERSION }}.zip
+          overwrite_mode: IgnoreIfExists
+
+      - name: Create the release
+        uses: OctopusDeploy/create-release-action@v4
+        with:
+          project: cmfleet-dashboard
+          release_number: ${{ env.VERSION }}
+          package_version: ${{ env.VERSION }}
+          ignore_existing: true
+          release_notes: "Build ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} of ${{ github.sha }}"
+
+  # The one check a ruleset requires: it says whether the build passed, also when the build was cancelled or skipped.
+  result:
+    name: Build result
+    needs: build
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: The build passed
+        run: |
+          if [ "${{ needs.build.result }}" != "success" ]; then
+            echo "The build ended with '${{ needs.build.result }}'."
+            exit 1
+          fi

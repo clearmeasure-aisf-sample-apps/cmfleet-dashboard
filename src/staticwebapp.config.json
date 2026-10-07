@@ -1,0 +1,10 @@
+{
+  "globalHeaders": {
+    "Access-Control-Allow-Origin": "*",
+    "Cache-Control": "no-cache",
+    "X-Content-Type-Options": "nosniff"
+  },
+  "mimeTypes": {
+    ".json": "application/json"
+  }
+}

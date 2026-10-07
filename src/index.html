@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fleet Health Dashboard</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wall">
+  <div class="top">
+    <div>
+      <h1 id="fleet-name">Fleet Health Dashboard</h1>
+      <p id="as-of">Reading the fleet's data.</p>
+    </div>
+    <div class="facts" id="facts"></div>
+  </div>
+  <div class="problem" id="problem" role="status" hidden></div>
+
+  <section class="map" aria-labelledby="map-h">
+    <h2 id="map-h">Landscape</h2>
+    <div class="legend">
+      <span class="key"><span class="swatch"></span>as declared</span>
+      <span class="key"><span class="swatch attention"></span>needs attention</span>
+      <span class="key"><span class="swatch critical"></span>production affected</span>
+      <span class="key"><span class="swatch not-read"></span>not read</span>
+      <span class="key"><span class="swatch asleep"></span>asleep</span>
+      <span>A system's box opens its own dashboard where it has one.</span>
+    </div>
+    <div class="map-scroll" id="landscape"></div>
+  </section>
+
+  <section aria-labelledby="sys-h" class="systems">
+    <h2 id="sys-h">Systems</h2>
+    <div class="tiles" id="tiles"></div>
+  </section>
+
+  <section class="shared" aria-labelledby="shared-h">
+    <h2 id="shared-h">Shared by every system</h2>
+    <div class="services" id="services"></div>
+    <div class="limits" id="limits"></div>
+    <p class="unused" id="unused"></p>
+  </section>
+
+  <footer id="foot"></footer>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "name": "cmfleet-dashboard",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The fleet health dashboard: every system of the fleet on one page.",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "lint": "eslint --max-warnings 0 .",
+    "test:unit": "node --test --experimental-test-coverage test/unit/",
+    "test:integration": "node --test test/integration/",
+    "test:acceptance": "node --test test/acceptance/"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.12.0",
+    "globals": "17.13.0",
+    "playwright": "1.63.0"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "description": "What one environment of the fleet health dashboard is made of: one Azure Static Web App on the Free plan. No repository is linked: the release's files are deployed with the site's deployment token, read at deploy time and never stored. The properties stay empty: the platform records who deployed last itself, and a value here would show as drift."
+  },
+  "parameters": {
+    "environmentName": { "type": "string" },
+    "location": { "type": "string", "defaultValue": "centralus" }
+  },
+  "variables": {
+    "siteName": "[format('swa-cmfleet-{0}-dashboard', parameters('environmentName'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Web/staticSites",
+      "apiVersion": "2024-04-01",
+      "name": "[variables('siteName')]",
+      "location": "[parameters('location')]",
+      "tags": {
+        "system": "cmfleet",
+        "environment": "[parameters('environmentName')]",
+        "deployable": "dashboard"
+      },
+      "sku": { "name": "Free", "tier": "Free" },
+      "properties": {}
+    }
+  ],
+  "outputs": {
+    "siteName": { "type": "string", "value": "[variables('siteName')]" },
+    "url": { "type": "string", "value": "[format('https://{0}', reference(resourceId('Microsoft.Web/staticSites', variables('siteName')), '2024-04-01').defaultHostname)]" }
+  }
+}
