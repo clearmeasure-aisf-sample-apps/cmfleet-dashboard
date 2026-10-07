@@ -50,7 +50,7 @@ Push-Location -LiteralPath $PSScriptRoot
 try {
     if (-not $Commit) { $Commit = (git rev-parse HEAD).Trim() }
 
-    Write-Host '==> tools'
+    Write-Host "==> tools (Node.js $((node --version).Trim()))"
     npm ci --no-audit --no-fund
     Remove-Item -LiteralPath dist, out -Recurse -Force -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Path dist, out | Out-Null
@@ -74,7 +74,7 @@ try {
     Write-Host "PASS PSScriptAnalyzer: $($scripts.Count) scripts, no problem"
 
     Write-Host '==> unit tests'
-    node --test --experimental-test-coverage --test-coverage-lines=90 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=out/lcov.info test/unit/
+    node --test --experimental-test-coverage --test-coverage-lines=90 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=out/lcov.info 'test/unit/*.test.js'
     Write-Host 'PASS unit tests'
 
     Write-Host '==> site'
@@ -86,7 +86,7 @@ try {
 
     Write-Host '==> integration tests'
     $env:SITE = 'dist/site'
-    node --test test/integration/
+    node --test 'test/integration/*.test.js'
     Write-Host 'PASS integration tests'
 
     Write-Host '==> build facts'

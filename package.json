@@ -7,9 +7,9 @@
   "engines": { "node": ">=22" },
   "scripts": {
     "lint": "eslint --max-warnings 0 .",
-    "test:unit": "node --test --experimental-test-coverage test/unit/",
-    "test:integration": "node --test test/integration/",
-    "test:acceptance": "node --test test/acceptance/"
+    "test:unit": "node --test --experimental-test-coverage test/unit/*.test.js",
+    "test:integration": "node --test test/integration/*.test.js",
+    "test:acceptance": "node --test test/acceptance/*.test.js"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
