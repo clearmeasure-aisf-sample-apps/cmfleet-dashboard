@@ -18,7 +18,8 @@
        request; the feed of the steps' container image; the team that signs off; one Azure account per tier; the
        project with its variables and its process: Sign-off (uat and prod), Update deployable, Verify deployable, and
        Run acceptance tests (tdd).
-    5. GitHub: the variables the build's release job reads.
+    5. GitHub: the variables the build's release job reads, and the ruleset of main (pull requests, with the checks
+       "Build result" and "secret-scan" passed).
 
     The steps' scripts are not here: they are in the release's package (deploy/), so a release carries the way it is
     deployed.
@@ -326,4 +327,6 @@ $repositoryVariables = [ordered] @{
 }
 foreach ($name in $repositoryVariables.Keys) { gh variable set $name --repo $Repository --body $repositoryVariables[$name] }
 Write-Host "PASS $($repositoryVariables.Keys -join ', ')"
+# main changes by pull request, with the build and the secret scan passed; organization owners may bypass.
+New-GitHubRuleset -FullName $Repository -RequiredCheck 'Build result', 'secret-scan'
 Write-Host "PASS cmfleet: space $($space.Id) ($($space.Slug)), project $($project.Id)"

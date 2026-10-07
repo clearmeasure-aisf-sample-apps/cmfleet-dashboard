@@ -62,6 +62,15 @@ group and a deploy identity per tier in Azure (`platform/azure.bicep`), and this
 federated: GitHub to Octopus for the release, Octopus to Azure for a deployment. No secret is stored anywhere; the
 site's deployment token is read at deploy time and kept in memory only.
 
+A release reaches `tdd` by itself. To promote it, as the operator:
+
+```bash
+pwsh -NoProfile -File platform/promote.ps1 -Environment uat -Reason "what was checked in tdd"
+pwsh -NoProfile -File platform/promote.ps1 -Environment prod -Reason "what was checked in uat"
+```
+
+The reason is the sign-off's note and stays with the deployment in Octopus.
+
 ## Working here
 
 ```bash
@@ -70,4 +79,5 @@ npx playwright install chromium   # or: export CHROMIUM_PATH=/usr/bin/chromium
 pwsh -NoProfile -File build.ps1
 ```
 
-To look at the page with the tests' data: `node tools/shot.js src test/fixtures out/wall.png`.
+To look at the page with the tests' data: `node tools/shot.js src test/fixtures out/wall.png`. To look at a deployed
+environment as a browser shows it: `node tools/shot-live.js <address> out/live.png`.
