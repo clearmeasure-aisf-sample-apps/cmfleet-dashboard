@@ -221,3 +221,46 @@ export function healthWord(probe) {
   if (probe.opaque) return 'responding';
   return probe.ok ? 'healthy' : `answers ${probe.status}`;
 }
+
+// A system's deployments in flight, from the file the system itself publishes (deployments.json). What ended stays on
+// the wall for ten minutes, so that a deployment of a few minutes is still seen.
+export const FINISHED_MINUTES = 10;
+const FLIGHT_ORDER = ['waiting', 'executing', 'queued', 'failed', 'canceled', 'succeeded'];
+
+export function deploymentText(mark) {
+  const what = `${mark.project} ${mark.release}`;
+  const ago = mark.minutes === null ? '' : ` ${formatAge(mark.minutes / 60)} ago`;
+  switch (mark.state) {
+    case 'queued': return `${what} is queued for ${mark.environment}`;
+    case 'executing': return `deploying ${what} to ${mark.environment}`;
+    case 'waiting': return `${what} waits for a sign-off in ${mark.environment}`;
+    case 'succeeded': return `${what} reached ${mark.environment}${ago}`;
+    case 'failed': return `${what} failed in ${mark.environment}${ago}`;
+    case 'canceled': return `${what} was canceled in ${mark.environment}${ago}`;
+    default: return `${what} in ${mark.environment}: ${mark.state}`;
+  }
+}
+
+// What to mark for one system: everything in flight, and what ended in the last ten minutes. The one a person has to
+// act on first, then what runs, what waits its turn, and what ended.
+export function deploymentMarks(file, now) {
+  const entries = Array.isArray(file?.deployments) ? file.deployments : [];
+  const rank = (state) => (FLIGHT_ORDER.indexOf(state) + 1) || FLIGHT_ORDER.length + 1;
+  return entries.map((entry) => {
+    const ended = Boolean(entry.finished);
+    const hours = ageHours(ended ? entry.finished : entry.since, now);
+    const mark = {
+      project: entry.project, environment: entry.environment, release: entry.release, state: entry.state,
+      url: entry.url || '', ended, minutes: hours === null ? null : Math.round(hours * 60),
+    };
+    return { ...mark, text: deploymentText(mark) };
+  }).filter((mark) => !mark.ended || (mark.minutes !== null && mark.minutes <= FINISHED_MINUTES))
+    .sort((a, b) => rank(a.state) - rank(b.state));
+}
+
+// The one word a system's box carries: what is in flight wins over what ended.
+export function flightState(marks) {
+  const inFlight = marks.find((mark) => !mark.ended);
+  if (inFlight) return inFlight.state;
+  return marks.length ? 'finished' : '';
+}

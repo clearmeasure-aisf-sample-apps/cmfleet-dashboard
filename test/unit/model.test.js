@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  STALE_AFTER_HOURS, ageHours, asked, behindReasons, counts, deploymentWord, displayState, fleetFacts, formatAge, healthWord, isStale,
+  FINISHED_MINUTES, STALE_AFTER_HOURS, ageHours, asked, behindReasons, counts, deploymentMarks, deploymentText, flightState, deploymentWord, displayState, fleetFacts, formatAge, healthWord, isStale,
   limitShare, limitsInUse, observed, parseUtc, prodEnvironments, prodRows, releaseGrid, serviceState, standing,
   standingSummary, systemLink, withoutSlug,
 } from '../../src/model.js';
@@ -215,4 +215,41 @@ test('a system the fleet wrote before it recorded standings has none, and no rea
   assert.equal(standingSummary(system()), '');
   assert.deepEqual(behindReasons(system()), []);
   assert.deepEqual(behindReasons(system({ behind: ['Code metrics: no code metrics for ui'] })), ['Code metrics: no code metrics for ui']);
+});
+
+const flight = (state, extra = {}) => ({ project: 'web', environment: 'uat', release: '2.4.43', state, since: '2026-10-07T11:50:00Z', url: 'https://octopus.example/task', ...extra });
+
+test('what is marked for a system: everything in flight, and what ended in the last ten minutes', () => {
+  assert.equal(FINISHED_MINUTES, 10);
+  const marks = deploymentMarks({ deployments: [
+    flight('succeeded', { finished: '2026-10-07T11:55:00Z' }),
+    flight('failed', { environment: 'prod', finished: '2026-10-07T11:30:00Z' }),
+    flight('queued', { environment: 'prod' }),
+    flight('executing'),
+    flight('waiting', { environment: 'prod', release: '2.4.42' }),
+  ] }, now);
+  assert.deepEqual(marks.map((mark) => [mark.state, mark.environment, mark.ended, mark.minutes]), [
+    ['waiting', 'prod', false, 10], ['executing', 'uat', false, 10], ['queued', 'prod', false, 10], ['succeeded', 'uat', true, 5],
+  ]);
+  assert.equal(marks[0].url, 'https://octopus.example/task');
+});
+
+test('a deployment is said in the words of someone at the wall', () => {
+  const said = (state, extra = {}) => deploymentText({ project: 'web', environment: 'uat', release: '2.4.43', state, minutes: 5, ...extra });
+  assert.equal(said('queued'), 'web 2.4.43 is queued for uat');
+  assert.equal(said('executing'), 'deploying web 2.4.43 to uat');
+  assert.equal(said('waiting'), 'web 2.4.43 waits for a sign-off in uat');
+  assert.equal(said('succeeded'), 'web 2.4.43 reached uat 5 min ago');
+  assert.equal(said('failed'), 'web 2.4.43 failed in uat 5 min ago');
+  assert.equal(said('canceled', { minutes: null }), 'web 2.4.43 was canceled in uat');
+  assert.equal(said('paused'), 'web 2.4.43 in uat: paused');
+});
+
+test('the word a box carries: what is in flight wins over what ended, and nothing is nothing', () => {
+  assert.equal(flightState(deploymentMarks({ deployments: [flight('succeeded', { finished: '2026-10-07T11:58:00Z' }), flight('queued')] }, now)), 'queued');
+  assert.equal(flightState(deploymentMarks({ deployments: [flight('failed', { finished: '2026-10-07T11:58:00Z' })] }, now)), 'finished');
+  assert.equal(flightState(deploymentMarks({ deployments: [] }, now)), '');
+  assert.deepEqual(deploymentMarks(undefined, now), []);
+  assert.deepEqual(deploymentMarks({ deployments: 'none' }, now), []);
+  assert.deepEqual(deploymentMarks({ deployments: [flight('succeeded', { finished: 'not a time' })] }, now), []);
 });

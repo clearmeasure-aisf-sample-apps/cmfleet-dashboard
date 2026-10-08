@@ -28,7 +28,8 @@
       <span class="key"><span class="swatch critical"></span>production affected</span>
       <span class="key"><span class="swatch not-read"></span>not read</span>
       <span class="key"><span class="swatch asleep"></span>asleep</span>
-      <span>A system's box opens its runtime view, or its dashboard where it names none.</span>
+      <span class="key"><span class="swatch flight"></span>deploying</span>
+      <span>A system's box zooms into its runtime view, or its dashboard where it names none.</span>
     </div>
     <div class="map-scroll" id="landscape"></div>
   </section>
@@ -46,6 +47,14 @@
   </section>
 
   <footer id="foot"></footer>
+</div>
+<div class="zoom" id="zoom" hidden>
+  <div class="zoom-bar">
+    <button type="button" id="zoom-out">&larr; Fleet</button>
+    <span id="zoom-name"></span>
+    <a id="zoom-own" target="_blank" rel="noopener">Open the dashboard itself</a>
+  </div>
+  <div class="zoom-stage" id="zoom-stage"></div>
 </div>
 <script type="module" src="app.js"></script>
 </body>
