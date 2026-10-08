@@ -17,10 +17,11 @@ server of its own.
 |---|---|
 | Gray | As declared. The normal state has no colour |
 | Amber, "Needs attention" | Something that worked has stopped: a failed deployment or check, an environment left behind, a stale proof |
+| Yellow, "Behind the standard" | Nothing has stopped, and the system does not keep every standard yet: a gap it never closed, or a change of the standard it has not taken yet. Why is on the tile's face |
 | Red, "Production affected" | The last deployment to production failed, or a service every system depends on is out |
 | Dashed, "Not read" | The fleet could not read the system, or its data is older than two of its six-hourly readings |
 | Dotted, "Asleep" | Switched off on purpose |
-| "1 gap" | Something the system never had, such as code metrics. Counted, never coloured: colour is for what stopped working |
+| "Standards: 9 met · 1 gap …" | Where the system stands on every standard of the fleet. The whole list, with the fleet's words for each, opens on demand: met, behind, gap, broken, not compared (with the declared reason), intended variance, observed, nothing to judge, not checked |
 
 A system's box in the landscape and its name on its tile open that system's runtime view (its own dashboard where it
 names none). Each tile shows what runs in production and for how long, and what is broken. The rest (every release in every

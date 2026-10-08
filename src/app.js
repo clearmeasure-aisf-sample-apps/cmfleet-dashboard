@@ -1,8 +1,8 @@
 // The page: reads the fleet's data and its landscape from where the fleet publishes them, and draws the wall. What
 // each thing means is decided in model.js; this file only puts it on the page.
 import {
-  STATE_WORDS, asked, counts, displayState, fleetFacts, formatAge, healthWord, limitShare, limitsInUse, observed,
-  prodRows, releaseGrid, serviceState, systemLink, withoutSlug,
+  STATE_WORDS, asked, behindReasons, counts, displayState, fleetFacts, formatAge, healthWord, limitShare, limitsInUse, observed,
+  prodRows, releaseGrid, serviceState, standing, standingSummary, systemLink, withoutSlug,
 } from './model.js';
 
 const RELOAD_MINUTES = 5;
@@ -43,11 +43,12 @@ function drawFacts(data, facts) {
     [String(facts.systems), 'systems', ''],
     [String(facts.critical), 'production affected', facts.critical ? 'crit' : ''],
     [String(facts.attention), 'need attention', facts.attention ? 'attn' : ''],
+    [String(facts.behind), 'behind the standard', facts.behind ? 'behind' : ''],
     [String(facts.broken), 'broken', ''],
     [String(facts.gaps), 'gaps', ''],
     [facts.cost, 'this month', ''],
   ];
-  if (facts.notRead) list.splice(3, 0, [String(facts.notRead), 'not read', '']);
+  if (facts.notRead) list.splice(4, 0, [String(facts.notRead), 'not read', '']);
   byId('facts').replaceChildren(...list.map(([value, label, kind]) => el('div', { class: `fact ${kind}` }, [
     el('b', { class: 'num', text: value }), el('span', { text: label }),
   ])));
@@ -101,6 +102,17 @@ function drawReleases(system) {
   return el('div', { class: 'grid-wrap' }, [table]);
 }
 
+// Where the system stands on every standard of the fleet, with the fleet's own words for why.
+function drawStanding(system) {
+  const rows = standing(system);
+  if (!rows.length) return null;
+  const table = el('table', { class: 'standards' }, [el('tr', {}, [el('th', { text: 'Standard' }), el('th', { text: 'Stands' }), el('th', { text: 'What the fleet read' })])]);
+  for (const row of rows) {
+    table.append(el('tr', { 'data-status': row.status }, [el('td', { text: row.label }), el('td', { class: 'stands', text: row.word }), el('td', { class: 'why', text: row.text })]));
+  }
+  return el('div', { class: 'grid-wrap' }, [table]);
+}
+
 function drawLinks(system) {
   const fee = system.parts.filter((part) => !/registry/i.test(part.part)).length;
   const link = (url, text) => (url ? el('a', { href: url, text }) : null);
@@ -122,15 +134,14 @@ function drawLinks(system) {
 // demand. Colour and the tile's face are for what has stopped working.
 function drawMore(system) {
   const count = counts(system);
-  const gaps = asked(system).filter((finding) => finding.class === 'gap');
   const summary = [
     count.gap ? plural(count.gap, 'gap', 'gaps') : '',
     count.observed ? `${count.observed} observed` : '',
     system.variances.length ? plural(system.variances.length, 'variance', 'variances') : '',
+    standing(system).length ? 'every standard' : '',
     'releases, cost, links',
   ].filter(Boolean).join(' · ');
-  const more = el('details', {}, [el('summary', { text: summary }), drawReleases(system)]);
-  if (gaps.length) more.append(el('h4', { text: 'Gaps: what it never had' }), titles(gaps, system.slug));
+  const more = el('details', {}, [el('summary', { text: summary }), drawStanding(system), drawReleases(system)]);
   if (count.observed) more.append(el('h4', { text: 'Observed, nothing asked' }), titles(observed(system), system.slug));
   if (system.variances.length) {
     more.append(el('h4', { text: 'Intended variances' }), el('ul', {}, system.variances.map((variance) => el('li', {}, [variance.variance, el('span', { text: ` ${variance.reason}` })]))));
@@ -151,6 +162,10 @@ function drawTile(system, facts, now) {
   if (broken.length) {
     tile.append(el('ul', { class: 'asks' }, broken.map((finding) => el('li', { class: finding.class === 'critical' ? 'critical' : '', text: withoutSlug(finding.title, system.slug) }))));
   }
+  // Why the system is behind the standard: on the face of the tile, because a reader should not have to open
+  // anything to learn that a system is behind and why.
+  if (behindReasons(system).length) tile.append(el('ul', { class: 'behind' }, behindReasons(system).map((reason) => el('li', { text: reason }))));
+  if (standing(system).length) tile.append(el('p', { class: 'standing', text: `Standards: ${standingSummary(system)}` }));
   if (system.health) tile.append(el('p', { class: 'health', 'data-health': system.health, text: 'health: not probed yet' }));
   tile.append(drawMore(system));
   return tile;

@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  STALE_AFTER_HOURS, ageHours, asked, counts, deploymentWord, displayState, fleetFacts, formatAge, healthWord, isStale,
-  limitShare, limitsInUse, observed, parseUtc, prodEnvironments, prodRows, releaseGrid, serviceState, systemLink,
-  withoutSlug,
+  STALE_AFTER_HOURS, ageHours, asked, behindReasons, counts, deploymentWord, displayState, fleetFacts, formatAge, healthWord, isStale,
+  limitShare, limitsInUse, observed, parseUtc, prodEnvironments, prodRows, releaseGrid, serviceState, standing,
+  standingSummary, systemLink, withoutSlug,
 } from '../../src/model.js';
 
 const now = new Date('2026-10-07T12:00:00Z');
@@ -83,6 +83,8 @@ test('the state on the wall: old data is not read, and a system switched off on 
   assert.equal(displayState(system({ state: 'ok' }), false), 'ok');
   assert.equal(displayState(system({ state: 'ok', asleep: true }), false), 'asleep');
   assert.equal(displayState(system({ state: 'attention', asleep: true }), false), 'attention');
+  assert.equal(displayState(system({ state: 'behind' }), false), 'behind');
+  assert.equal(displayState(system({ state: 'behind', asleep: true }), false), 'behind');
   assert.equal(displayState(system({ state: 'critical' }), true), 'not-read');
 });
 
@@ -129,11 +131,11 @@ test('the fleet in numbers', () => {
       system({ state: 'critical', findings: [{ key: 'deployment/a/web/prod', class: 'critical', observed: false }] }),
       system({ state: 'attention', findings: [{ key: 'promotion/b/web', class: 'broken', observed: false }, { key: 'policy/b/code-metrics', class: 'gap', observed: false }] }),
       system({ state: 'unknown' }),
-      system({ state: 'ok', findings: [{ key: 'policy/d/code-metrics', class: 'gap', observed: false }] }),
+      system({ state: 'behind', findings: [{ key: 'policy/d/code-metrics', class: 'gap', observed: false }] }),
     ],
     shared: { cost: [{ of: 'the fleet', monthToDate: '91.07', currency: 'USD' }, { of: 'the rest of the subscription', monthToDate: '1.00', currency: 'USD' }] },
   };
-  assert.deepEqual(fleetFacts(data, now), { stale: false, age: 2, systems: 4, critical: 1, attention: 1, notRead: 1, broken: 2, gaps: 2, cost: '91.07 USD' });
+  assert.deepEqual(fleetFacts(data, now), { stale: false, age: 2, systems: 4, critical: 1, attention: 1, behind: 1, notRead: 1, broken: 2, gaps: 2, cost: '91.07 USD' });
 });
 
 test('old data makes every system not read, and no cost reads as n/a', () => {
@@ -189,4 +191,28 @@ test('a system leads to its runtime view, to its dashboard when it names none, a
   assert.equal(systemLink(system({ runtimeView: 'https://d.example/#runtime/prod', dashboard: 'https://d.example' })), 'https://d.example/#runtime/prod');
   assert.equal(systemLink(system({ runtimeView: '', dashboard: 'https://d.example' })), 'https://d.example');
   assert.equal(systemLink(system()), '');
+});
+
+test('where a system stands on each standard, in the words of the wall, and in one line with the worst first', () => {
+  const one = system({ standards: [
+    { standard: 'registry', label: 'Registry', status: 'met', text: 'system.json agrees' },
+    { standard: 'templates', label: 'Kit templates', status: 'behind', text: '7 file(s) behind the kit' },
+    { standard: 'code metrics', label: 'Code metrics', status: 'gap', text: 'no code metrics for ui' },
+    { standard: 'proof', label: 'Proofs', status: 'none', text: 'none of the proof runbooks' },
+    { standard: 'identity', label: 'GitHub identity', status: 'unchecked', text: 'not checked yet' },
+    { standard: 'promotion', label: 'Promotion', status: 'met', text: 'no environment behind' },
+    { standard: 'new', status: 'something-new', text: '' },
+  ] });
+  assert.deepEqual(standing(one).map((row) => [row.label, row.word]), [
+    ['Registry', 'met'], ['Kit templates', 'behind'], ['Code metrics', 'gap'], ['Proofs', 'nothing to judge'],
+    ['GitHub identity', 'not checked'], ['Promotion', 'met'], ['new', 'something-new'],
+  ]);
+  assert.equal(standingSummary(one), '1 gap · 1 behind · 1 nothing to judge · 1 not checked · 2 met · 1 something-new');
+});
+
+test('a system the fleet wrote before it recorded standings has none, and no reasons', () => {
+  assert.deepEqual(standing(system()), []);
+  assert.equal(standingSummary(system()), '');
+  assert.deepEqual(behindReasons(system()), []);
+  assert.deepEqual(behindReasons(system({ behind: ['Code metrics: no code metrics for ui'] })), ['Code metrics: no code metrics for ui']);
 });

@@ -10,7 +10,7 @@ img, svg { max-width: 100%; }
 :root {
   --bg: #d5dadc; --surface: #e6eaeb; --raised: #f1f3f4; --ink: #1c272d; --muted: #55646c; --line: #aab4b9; --line-strong: #7b8a91;
   --box: #607d8b; --box-ink: #ffffff;
-  --attn: #b86a00; --attn-bg: #f6dfb3; --crit: #a8261c; --crit-bg: #f3cfc9;
+  --attn: #b86a00; --attn-bg: #f6dfb3; --behind: #a38a00; --behind-bg: #f1e9b8; --crit: #a8261c; --crit-bg: #f3cfc9;
   --display: "IBM Plex Sans Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
   --body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
   --data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
@@ -18,11 +18,11 @@ img, svg { max-width: 100%; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #171d20; --surface: #20282c; --raised: #283237; --ink: #e2e8ea; --muted: #98a6ad; --line: #3a474d; --line-strong: #5c6b72;
   --box: #4d6672; --box-ink: #ffffff;
-  --attn: #f0a63a; --attn-bg: #4a3613; --crit: #ff8a7c; --crit-bg: #4c211c; color-scheme: dark } }
+  --attn: #f0a63a; --attn-bg: #4a3613; --behind: #e3cb3f; --behind-bg: #3b3610; --crit: #ff8a7c; --crit-bg: #4c211c; color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #171d20; --surface: #20282c; --raised: #283237; --ink: #e2e8ea; --muted: #98a6ad; --line: #3a474d; --line-strong: #5c6b72;
   --box: #4d6672; --box-ink: #ffffff;
-  --attn: #f0a63a; --attn-bg: #4a3613; --crit: #ff8a7c; --crit-bg: #4c211c; color-scheme: dark }
+  --attn: #f0a63a; --attn-bg: #4a3613; --behind: #e3cb3f; --behind-bg: #3b3610; --crit: #ff8a7c; --crit-bg: #4c211c; color-scheme: dark }
 body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.45; }
 .wall { padding-inline: clamp(16px, 2.2vw, 40px); padding-block: 20px 40px; display: grid; gap: 22px; }
 a { color: inherit; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
@@ -130,3 +130,21 @@ details .grid-wrap, details .meta, details .links { margin-top: 10px; }
 footer p { margin: 0 0 6px; }
 .systems { display: grid; gap: 10px; }
 .unused { margin: 0; color: var(--muted); font-size: .86rem; }
+
+/* Behind the standard: nothing has stopped, and the system does not keep every standard yet. Yellow, less than the
+   amber of what stopped working, and its reasons are on the tile's face. */
+.map svg g.entity[data-state="behind"] rect { stroke: var(--behind) !important; stroke-width: 5px !important; }
+.swatch.behind { border: 3px solid var(--behind); }
+.fact.behind b { color: var(--behind); }
+.tile[data-state="behind"] { border-top-color: var(--behind); }
+.pill.behind { background: var(--behind-bg); border-color: var(--behind); color: var(--ink); }
+.behind { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+ul.behind li { border-left: 4px solid var(--behind); padding: 2px 0 2px 10px; font-size: .93rem; overflow-wrap: anywhere; }
+.standing { margin: 0; color: var(--muted); font-size: .84rem; }
+table.standards td { white-space: normal; vertical-align: top; }
+table.standards td.stands { white-space: nowrap; font-weight: 500; }
+table.standards td.why { color: var(--muted); min-width: 16rem; overflow-wrap: anywhere; }
+table.standards tr[data-status="gap"] td.stands, table.standards tr[data-status="behind"] td.stands { color: var(--behind); }
+table.standards tr[data-status="broken"] td.stands { color: var(--attn); }
+table.standards tr[data-status="critical"] td.stands { color: var(--crit); }
+table.standards tr[data-status="met"] td.stands { color: var(--muted); font-weight: 400; }
