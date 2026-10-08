@@ -8,8 +8,9 @@
     Runs in the release's extracted package, signed in to Azure as the tier's deploy identity.
     1. Applies deploy/site.json to the environment's resource group: the pipeline creates the environment, nobody
        does by hand.
-    2. Reads the site's deployment token, keeps it in a variable and in the CLI's environment only, and deploys the
-       folder site/ with the Static Web Apps CLI.
+    2. Switches the account's static website on (index.html, and 404.html for an address that is not there).
+    3. Writes the folder site/ into the account's $web container as that identity, with no key, and removes what the
+       release no longer holds. Every file is served with Cache-Control: no-cache, so a reader gets this release.
 
 .PARAMETER Environment
     The Octopus environment: tdd, uat or prod.
@@ -32,48 +33,47 @@ param(
 
 . (Join-Path $PSScriptRoot 'common.ps1')
 
-$swaCliVersion = '2.0.10'
+function Invoke-Storage {
+    # One Azure CLI call against the account's data, as the signed-in identity. The CLI reports progress on stderr,
+    # which Octopus would log as errors: what it writes is captured, and its exit code decides. A new account takes
+    # the identity's role on the resource group a moment to honour, so a refusal is asked again for five minutes.
+    param([Parameter(Mandatory)] [string] $What, [Parameter(Mandatory)] [string[]] $Arguments)
+    $deadline = (Get-Date).AddMinutes(5)
+    while ($true) {
+        $PSNativeCommandUseErrorActionPreference = $false
+        $output = @(az storage @Arguments --auth-mode login --only-show-errors 2>&1 | ForEach-Object { "$_" })
+        $code = $LASTEXITCODE
+        $PSNativeCommandUseErrorActionPreference = $true
+        if ($code -eq 0) { return $output }
+        $refused = @($output | Where-Object { $_ -match 'AuthorizationPermissionMismatch|AuthorizationFailure|not authorized to perform this operation' }).Count -gt 0
+        if (-not $refused -or (Get-Date) -gt $deadline) {
+            $output | Where-Object { $_.Trim() } | ForEach-Object { Write-Host "  $_" }
+            Stop-Step "Azure CLI ended with exit code $code while it tried to ${What}; its output is above."
+        }
+        Write-Host "Azure does not let this identity $What yet; asking again"
+        Start-Sleep -Seconds 20
+    }
+}
+
 $environmentName = $Environment.ToLowerInvariant()
 $root = Split-Path -Parent $PSScriptRoot
-$served = (Get-Content -LiteralPath (Join-Path $root 'site/version.json') -Raw | ConvertFrom-Json).version
+$site = Join-Path $root 'site'
+$served = (Get-Content -LiteralPath (Join-Path $site 'version.json') -Raw | ConvertFrom-Json).version
 if ($served -ne $Version) { Stop-Step "The package holds version $served, not the release $Version." }
 
 Write-Host "==> the site of $environmentName in $ResourceGroup"
 $outputs = az deployment group create --resource-group $ResourceGroup --name "cmfleet-dashboard-$environmentName" --template-file (Join-Path $PSScriptRoot 'site.json') --parameters "environmentName=$environmentName" --query properties.outputs --only-show-errors --output json | ConvertFrom-Json
-$siteName = [string] $outputs.siteName.value
-$url = [string] $outputs.url.value
-Write-Host "PASS $siteName at $url"
+$account = [string] $outputs.accountName.value
+$url = ([string] $outputs.url.value).TrimEnd('/')
+Invoke-Storage -What "switch the website of $account on" -Arguments @('blob', 'service-properties', 'update', '--account-name', $account, '--static-website', 'true', '--index-document', 'index.html', '--404-document', '404.html', '--output', 'none') | Out-Null
+Write-Host "PASS $account serves a website at $url"
 
-# The deployment token: read now, kept in this variable only, handed to the CLI through its environment (never an
-# argument, which a process list shows), and removed from the environment when the CLI has ended.
-$token = ([string] (az staticwebapp secrets list --name $siteName --resource-group $ResourceGroup --query properties.apiKey --only-show-errors --output tsv)).Trim()
-if (-not $token) { Stop-Step "Azure returned no deployment token for $siteName." }
-
-# The CLI (and npx before it) reports its progress on stderr, which Octopus would log as errors: what it writes is
-# captured and shown as information, and its exit code decides. It takes its working directory as the app's location
-# and searches it, so it runs in a folder of its own that holds nothing but the site.
-Write-Host "==> $Version onto $siteName with the Static Web Apps CLI $swaCliVersion (Node.js $((node --version).Trim()))"
-$env:NO_COLOR = '1'
-$env:npm_config_update_notifier = 'false'
-$stage = Join-Path ([IO.Path]::GetTempPath()) "site-$([Guid]::NewGuid().ToString('N'))"
-New-Item -ItemType Directory -Path $stage | Out-Null
-Copy-Item -LiteralPath (Join-Path $root 'site') -Destination (Join-Path $stage 'site') -Recurse
-Push-Location -LiteralPath $stage
-try {
-    $env:SWA_CLI_DEPLOYMENT_TOKEN = $token
-    $PSNativeCommandUseErrorActionPreference = $false
-    $output = @(npx --yes "@azure/static-web-apps-cli@$swaCliVersion" deploy ./site --env production 2>&1 | ForEach-Object { "$_" })
-    $code = $LASTEXITCODE
+Write-Host "==> $Version into $account"
+Invoke-Storage -What "write the site into $account" -Arguments @('blob', 'upload-batch', '--account-name', $account, '--destination', '$web', '--source', $site, '--overwrite', 'true', '--content-cache-control', 'no-cache', '--no-progress', '--output', 'none') | Out-Null
+$files = @(Get-ChildItem -LiteralPath $site -File -Recurse | ForEach-Object { [IO.Path]::GetRelativePath($site, $_.FullName).Replace('\', '/') })
+$blobs = @((Invoke-Storage -What "list the files of $account" -Arguments @('blob', 'list', '--account-name', $account, '--container-name', '$web', '--query', '[].name', '--output', 'json')) -join "`n" | ConvertFrom-Json)
+$left = @($blobs | Where-Object { $files -cnotcontains $_ })
+foreach ($name in $left) {
+    Invoke-Storage -What "remove $name from $account" -Arguments @('blob', 'delete', '--account-name', $account, '--container-name', '$web', '--name', $name, '--output', 'none') | Out-Null
 }
-finally {
-    $PSNativeCommandUseErrorActionPreference = $true
-    Remove-Item -LiteralPath Env:SWA_CLI_DEPLOYMENT_TOKEN -ErrorAction SilentlyContinue
-    Pop-Location
-    Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue
-}
-# Colour codes out, and the token too, should a tool ever echo it.
-$lines = @($output | ForEach-Object { ($_ -replace '\x1b\[[0-9;?]*[ -/]*[@-~]', '').Replace($token, '***').TrimEnd() } | Where-Object { $_ })
-$token = $null
-$lines | ForEach-Object { Write-Host "  $_" }
-if ($code -ne 0) { Stop-Step "The Static Web Apps CLI ended with exit code $code while deploying $Version to ${siteName}; its output is above." }
-Write-Host "PASS $Version handed to $siteName"
+Write-Host "PASS $Version is in ${account}: $($files.Count) files written$(if ($left.Count -gt 0) { ", $($left.Count) of an earlier release removed" })"

@@ -34,16 +34,22 @@ test('the script, the model and the styles are served as what they are', async (
   }
 });
 
-test('the build facts are of this release and any page may read them', async () => {
+test('the build facts are of this release, and are not kept by a cache', async () => {
   const { response, text } = await get('/build.json');
   assert.equal(response.status, 200);
-  assert.equal(response.headers.get('access-control-allow-origin'), '*');
+  assert.equal(response.headers.get('cache-control'), 'no-cache');
   const facts = JSON.parse(text);
   assert.equal(facts.version, version);
   assert.match(facts.commit, /^[0-9a-f]{40}$/);
   assert.ok(facts.code.linesOfCode > 0);
   assert.ok(facts.tests.unit > 0);
   assert.equal(facts.analysis.problems, 0);
+});
+
+test('an address that is not there answers 404 with the page that says so', async () => {
+  const { response, text } = await get('/no-such-page');
+  assert.equal(response.status, 404);
+  assert.match(text, /<title>Not found<\/title>/);
 });
 
 test('the health address answers ok', async () => {

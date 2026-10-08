@@ -45,8 +45,15 @@ as of the last reading.
 
 ## What it is made of
 
-One Azure Static Web App on the Free plan per environment (`deploy/site.json`), created by the release that first
-needs it. That is this system's own choice; the kit specifies how a system is delivered, not what it is made of.
+One storage account per environment that serves the site's files as a static website (`deploy/site.json`), created
+by the release that first needs it. That is this system's own choice; the kit specifies how a system is delivered,
+not what it is made of. Why this and not Static Web Apps on the Free plan, where it began: a subscription may have
+ten of those, and the fleet's systems had used them up. A storage website has no such limit, costs cents a month,
+keeps three separate environments, and is deployed by Octopus with no key.
+
+What it cannot do: send headers of its own. Azure Storage does not support CORS on a static website, so a page of
+another origin cannot read `/build.json` or `/health.json` here. The fleet health dashboard reads its own, which is
+the same origin. A site whose files other pages must read needs another hosting.
 
 A release is one package, `cmfleet-dashboard.<version>.zip`:
 
@@ -60,8 +67,9 @@ So a release carries the way it is deployed, and an old release deploys the way 
 
 `platform/set-platform.ps1`, run by the operator, safe to run again: the Octopus space and what is in it, a resource
 group and a deploy identity per tier in Azure (`platform/azure.bicep`), and this repository's settings. Identities are
-federated: GitHub to Octopus for the release, Octopus to Azure for a deployment. No secret is stored anywhere; the
-site's deployment token is read at deploy time and kept in memory only.
+federated: GitHub to Octopus for the release, Octopus to Azure for a deployment. No secret is stored anywhere, and no
+key opens the sites: shared keys are switched off on the storage accounts, and the release writes the files as the
+tier's deploy identity.
 
 A release reaches `tdd` by itself. To promote it, as the operator:
 

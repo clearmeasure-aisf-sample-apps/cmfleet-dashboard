@@ -2,11 +2,11 @@
 // one resource group per tier and, in each, the identity Octopus deploys as. Nothing else: the sites themselves are
 // created by the release (deploy/site.json), not here.
 // The identity is trusted for exactly one subject per environment: this space, this project, that environment.
-// Its role is Contributor on its own resource group: it creates the static site and reads its deployment token, and
-// can grant nothing to anyone.
+// Its roles are Contributor and Storage Blob Data Contributor on its own resource group: it creates the site's
+// storage account and writes the site's files, and can grant nothing to anyone.
 targetScope = 'subscription'
 
-@description('Where the resource groups and the sites are. The Free plan of Static Web Apps exists in few regions.')
+@description('Where the resource groups and the sites are.')
 param location string = 'centralus'
 
 @description('The Octopus server, without a trailing slash: the issuer of the tokens the deploy identities trust.')
