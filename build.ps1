@@ -7,6 +7,7 @@
 .DESCRIPTION
     1. Static analysis: eslint over the JavaScript and PSScriptAnalyzer over the PowerShell, warnings as errors.
     2. Unit tests of the model, with coverage (at least 90 percent of its lines).
+       Tests of the deploy scripts' shared functions against an Azure CLI that answers what the test says.
     3. The site (dist/site) and the release's content beside it (dist/deploy, dist/acceptance).
     4. Integration tests: the built site in a browser, with data the tests chose.
     5. The build's facts (dist/site/build.json: version, commit, lines of code, tests, coverage, complexity, analyzer).
@@ -58,7 +59,7 @@ try {
     Write-Host '==> static analysis'
     npx eslint --max-warnings 0 .
     Write-Host 'PASS eslint: no problem'
-    $scripts = @(Get-ChildItem -Path build.ps1, deploy, platform -Filter *.ps1 -Recurse -File)
+    $scripts = @(Get-ChildItem -Path build.ps1, deploy, platform, test/deploy -Filter *.ps1 -Recurse -File)
     $problems = @(foreach ($script in $scripts) {
             $tokens = $null
             $errors = $null
@@ -76,6 +77,10 @@ try {
     Write-Host '==> unit tests'
     node --test --experimental-test-coverage --test-coverage-lines=90 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=out/lcov.info 'test/unit/*.test.js'
     Write-Host 'PASS unit tests'
+
+    Write-Host '==> tests of the deploy scripts'
+    pwsh -NoProfile -File test/deploy/common.test.ps1
+    Write-Host 'PASS deploy scripts'
 
     Write-Host '==> site'
     Copy-Item -LiteralPath src -Destination dist/site -Recurse
