@@ -11,6 +11,7 @@
     2. Switches the account's static website on (index.html, and 404.html for an address that is not there).
     3. Writes the folder site/ into the account's $web container as that identity, with no key, and removes what the
        release no longer holds. Every file is served with Cache-Control: no-cache, so a reader gets this release.
+    4. Removes the Static Web App the environment used to be, where one is left.
 
 .PARAMETER Environment
     The Octopus environment: tdd, uat or prod.
@@ -77,3 +78,13 @@ foreach ($name in $left) {
     Invoke-Storage -What "remove $name from $account" -Arguments @('blob', 'delete', '--account-name', $account, '--container-name', '$web', '--name', $name, '--output', 'none') | Out-Null
 }
 Write-Host "PASS $Version is in ${account}: $($files.Count) files written$(if ($left.Count -gt 0) { ", $($left.Count) of an earlier release removed" })"
+
+# Until 2026-10-08 an environment was a Static Web App on the Free plan. What is left of it is removed, so that the
+# environment is what this release says and nothing more, and the subscription has its Free site back.
+$former = "swa-cmfleet-$environmentName-dashboard"
+$found = ([string] (az staticwebapp list --resource-group $ResourceGroup --query "[?name=='$former'].name | [0]" --only-show-errors --output tsv)).Trim()
+if ($found) {
+    Write-Host "==> the former site $former"
+    az staticwebapp delete --name $former --resource-group $ResourceGroup --yes --only-show-errors --output none
+    Write-Host "PASS $former removed"
+}
