@@ -151,7 +151,7 @@ if ($Space -notmatch '^Spaces-\d+$') {
 $now = (Get-Date).ToUniversalTime()
 # The newest deployment tasks, whatever their state: everything in flight is among them, and what ended lately.
 $tasks = @((Invoke-Octopus "/api/$Space/tasks?name=Deploy&take=100").Items)
-$deployments = [Collections.Generic.List[hashtable]]::new()
+$deployments = [Collections.Generic.List[object]]::new()
 foreach ($task in $tasks) {
     $finished = if ($task.IsCompleted) { Get-Utc -Value $task.CompletedTime } else { $null }
     if ($task.IsCompleted -and (-not $finished -or ($now - $finished).TotalMinutes -gt $FinishedMinutes)) { continue }
