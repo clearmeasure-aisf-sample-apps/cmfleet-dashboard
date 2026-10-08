@@ -43,7 +43,7 @@ as of the last reading.
 | Acceptance tests | `test/acceptance`: the deployed first environment, run by the release itself |
 | Code metrics | `/build.json` of every deployed site: version, commit, lines of code, tests, coverage, complexity, analyzer |
 | Health | `/health.json` of every deployed site; asked after every deployment |
-| Deployments in flight | Workflow `deployments` publishes `deployments.json` on branch `deployments`: after every build, every five minutes |
+| Deployments in flight | Workflow `deployments` publishes `deployments.json` on branch `deployments`: after every build and on a five-minute schedule (GitHub starts it every twenty to thirty minutes in practice); a run stays while something is executing and reads Octopus again every half minute, so a deployment it sees is followed to its end |
 | Environments | `tdd` (every release, by itself), `uat` and `prod` (promotions, each after a sign-off) |
 | Release | Octopus Deploy, space `cmfleet`, project `cmfleet-dashboard` |
 

@@ -5,8 +5,10 @@
 # https://raw.githubusercontent.com/clearmeasure-aisf-sample-apps/cmfleet-dashboard/deployments/deployments.json.
 # The script is the kit's (templates/system/scripts/write-deployments.ps1), copied here: this system has no
 # system.json, so the workflow names the system and its space.
-# It runs after every Build (a build of main hands a release to Octopus, which deploys it to tdd), every five minutes,
-# and on demand. A started deployment shows within about one to six minutes.
+# It runs after every Build (a build of main hands a release to Octopus, which deploys it to tdd), on a five-minute
+# schedule (which GitHub starts every twenty to thirty minutes in practice), and on demand; a run stays while something
+# is executing and reads again every half minute. A deployment a run sees shows within minutes and is followed to its
+# end; a promotion, which no run is started for, shows at the next scheduled run.
 # Credentials: GitHub OIDC to Octopus (environment "deployments", main only) and this workflow's own token to push
 # the branch. No stored secret.
 name: deployments
@@ -33,7 +35,7 @@ jobs:
     # A named image: ubuntu-latest annotates every run while it moves to the next one.
     runs-on: ubuntu-24.04
     environment: deployments
-    timeout-minutes: 5
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6.0.1
 
@@ -43,14 +45,19 @@ jobs:
           server: ${{ vars.OCTOPUS_URL }}
           service_account_id: ${{ vars.OCTOPUS_SERVICE_ACCOUNT_ID }}
 
-      - name: Write deployments.json
-        shell: pwsh
-        run: ./platform/write-deployments.ps1 -Path "${{ runner.temp }}/deployments.json" -System cmfleet -OctopusUrl '${{ vars.OCTOPUS_URL }}' -Space '${{ vars.OCTOPUS_SPACE_NAME }}'
-
-      # One commit without a parent, made from the file alone, as github-actions[bot] with the token the checkout step
-      # kept. Nothing is pushed when the file says what the published one says, the time of generation aside.
-      - name: Publish on branch deployments
+      # One step writes and publishes, and stays while something is executing: it reads again every half minute, so
+      # the file follows a deployment to its end. Nothing tells a workflow that a deployment ended, and GitHub started
+      # this five-minute schedule every twenty to thirty minutes (cmfleet, 2026-10-08): without the stay, a deployment
+      # that had ended was "executing" on every dashboard for up to half an hour. A deployment that waits for a
+      # person or for its turn does not hold the run (that can last hours; the schedule covers it), and after twenty
+      # minutes the run ends whatever is executing.
+      # Published as one commit without a parent, made from the file alone (no checkout of the branch), as
+      # github-actions[bot] with the token the checkout step kept. Nothing is pushed when the file says what the
+      # published one says, the time of generation aside: "generated" is then the time of the last change.
+      - name: Write and publish deployments.json
         env:
+          OCTOPUS_URL: ${{ vars.OCTOPUS_URL }}
+          OCTOPUS_SPACE_NAME: ${{ vars.OCTOPUS_SPACE_NAME }}
           WRITTEN: ${{ runner.temp }}/deployments.json
           PUBLISHED: ${{ runner.temp }}/deployments.published.json
           GIT_AUTHOR_NAME: "github-actions[bot]"
@@ -66,12 +73,27 @@ jobs:
               git show FETCH_HEAD:deployments.json > "$PUBLISHED"
             fi
           fi
-          if [ -f "$PUBLISHED" ] && [ "$(facts "$WRITTEN")" = "$(facts "$PUBLISHED" 2>/dev/null || true)" ]; then
-            echo "deployments.json is unchanged: nothing to publish."
-            exit 0
-          fi
-          blob=$(git hash-object -w "$WRITTEN")
-          tree=$(printf '100644 blob %s\tdeployments.json\n' "$blob" | git mktree)
-          commit=$(git commit-tree "$tree" -m "Deployments of $(date -u +%Y-%m-%dT%H:%M:%SZ)")
-          git push --quiet --force origin "$commit:refs/heads/deployments"
-          echo "Published on branch deployments ($commit)."
+          publish() {
+            if [ -f "$PUBLISHED" ] && [ "$(facts "$WRITTEN")" = "$(facts "$PUBLISHED" 2>/dev/null || true)" ]; then
+              echo "deployments.json is unchanged: nothing to publish."
+              return 0
+            fi
+            blob=$(git hash-object -w "$WRITTEN")
+            tree=$(printf '100644 blob %s\tdeployments.json\n' "$blob" | git mktree)
+            commit=$(git commit-tree "$tree" -m "Deployments of $(date -u +%Y-%m-%dT%H:%M:%SZ)")
+            git push --quiet --force origin "$commit:refs/heads/deployments"
+            cp "$WRITTEN" "$PUBLISHED"
+            echo "Published on branch deployments ($commit)."
+          }
+          stay=$((SECONDS + 1200))
+          while :; do
+            pwsh -NoProfile -File ./platform/write-deployments.ps1 -Path "$WRITTEN" -System cmfleet -OctopusUrl "$OCTOPUS_URL" -Space "$OCTOPUS_SPACE_NAME"
+            publish
+            executing=$(jq '[.deployments[] | select(.state == "executing")] | length' "$WRITTEN")
+            if [ "$executing" -eq 0 ]; then break; fi
+            if [ "$SECONDS" -ge "$stay" ]; then
+              echo "Still $executing executing after twenty minutes: the next run reads on."
+              break
+            fi
+            sleep 30
+          done
