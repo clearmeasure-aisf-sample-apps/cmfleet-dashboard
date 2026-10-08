@@ -32,6 +32,8 @@ async function dataWith(change) {
   await cp(fixtures, directory, { recursive: true });
   const data = JSON.parse(await readFile(join(fixtures, 'fleet.json'), 'utf8'));
   data.generated = READ_AT;
+  // The tests reach nothing outside this machine: the health addresses the systems named are real ones.
+  for (const system of data.systems) system.health = '';
   const changed = change ? change(data) : data;
   if (changed !== null) await writeFile(join(directory, 'fleet.json'), JSON.stringify(changed ?? data));
   else await rm(join(directory, 'fleet.json'));
@@ -84,24 +86,45 @@ test('fresh data: every system has a tile, the landscape carries the states, and
   });
 });
 
-test('a gap is counted and does not colour the tile; what is broken is on its face', async () => {
+test('a system that is behind the standard is yellow and says why on its face; what is broken stays amber', async () => {
   const data = await dataWith((fleet) => {
-    const system = fleet.systems[0];
-    system.state = 'ok';
-    system.findings = [{ key: `policy/${system.slug}/code-metrics`, title: `${system.slug}: no code metrics for web`, class: 'gap', observed: false, scope: 'system' }];
-    fleet.systems[1].state = 'attention';
-    fleet.systems[1].findings = [{ key: `promotion/${fleet.systems[1].slug}/web`, title: `${fleet.systems[1].slug}: web: uat and prod behind tdd`, class: 'broken', observed: false, scope: 'system' }];
+    Object.assign(fleet.systems[0], {
+      state: 'behind',
+      findings: [{ key: `policy/${fleet.systems[0].slug}/code-metrics`, title: `${fleet.systems[0].slug}: no code metrics for web`, class: 'gap', observed: false, scope: 'system' }],
+      behind: ['Kit templates: 7 file(s) behind the kit since 2026-10-08 01:24 UTC, within the 24 hours a system has to follow', 'Code metrics: no code metrics for web'],
+      standards: [
+        { standard: 'registry', label: 'Registry', status: 'met', text: 'system.json agrees' },
+        { standard: 'templates', label: 'Kit templates', status: 'behind', text: '7 file(s) behind the kit since 2026-10-08 01:24 UTC' },
+        { standard: 'code metrics', label: 'Code metrics', status: 'gap', text: 'no code metrics for web' },
+        { standard: 'identity', label: 'GitHub identity', status: 'unchecked', text: 'not checked yet' },
+      ],
+    });
+    Object.assign(fleet.systems[1], {
+      state: 'attention', behind: [], standards: [],
+      findings: [{ key: `promotion/${fleet.systems[1].slug}/web`, title: `${fleet.systems[1].slug}: web: uat and prod behind tdd`, class: 'broken', observed: false, scope: 'system' }],
+    });
     return fleet;
   });
   const fleet = JSON.parse(await readFile(join(data, 'fleet.json'), 'utf8'));
   await withPage(data, SOON_AFTER, async (page) => {
-    const quiet = tile(page, fleet.systems[0].slug);
-    assert.equal(await quiet.getAttribute('data-state'), 'ok');
-    assert.equal(await quiet.locator('.asks li').count(), 0);
-    assert.match(await quiet.locator('summary').textContent(), /^1 gap/);
-    const loud = tile(page, fleet.systems[1].slug);
-    assert.equal(await loud.getAttribute('data-state'), 'attention');
-    assert.deepEqual(await loud.locator('.asks li').allTextContents(), ['web: uat and prod behind tdd']);
+    const yellow = tile(page, fleet.systems[0].slug);
+    assert.equal(await yellow.getAttribute('data-state'), 'behind');
+    assert.equal(await yellow.locator('.pill').textContent(), 'Behind the standard');
+    assert.deepEqual(await yellow.locator('ul.behind li').allTextContents(), fleet.systems[0].behind);
+    assert.equal(await yellow.locator('ul.behind li').first().isVisible(), true);
+    assert.equal(await yellow.locator('.standing').textContent(), 'Standards: 1 gap · 1 behind · 1 not checked · 1 met');
+    assert.equal(await yellow.locator('.asks li').count(), 0);
+    assert.equal(await page.locator(`#landscape g.entity[data-qualified-name$=".${fleet.systems[0].slug}"]`).getAttribute('data-state'), 'behind');
+    assert.equal(await yellow.locator('table.standards').isVisible(), false);
+    await yellow.locator('summary').click();
+    assert.deepEqual(await yellow.locator('table.standards tr[data-status]').evaluateAll((rows) => rows.map((row) => [...row.cells].slice(0, 2).map((cell) => cell.textContent))), [
+      ['Registry', 'met'], ['Kit templates', 'behind'], ['Code metrics', 'gap'], ['GitHub identity', 'not checked'],
+    ]);
+    const amber = tile(page, fleet.systems[1].slug);
+    assert.equal(await amber.getAttribute('data-state'), 'attention');
+    assert.deepEqual(await amber.locator('.asks li').allTextContents(), ['web: uat and prod behind tdd']);
+    assert.equal(await amber.locator('ul.behind').count(), 0);
+    assert.equal(await page.locator('#facts .fact.behind b').textContent(), String(fleet.systems.filter((system) => system.state === 'behind').length));
   });
 });
 

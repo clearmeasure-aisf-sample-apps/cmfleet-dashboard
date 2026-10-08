@@ -10,6 +10,7 @@ const FAILED = ['Failed', 'TimedOut', 'Canceled'];
 export const STATE_WORDS = {
   critical: 'Production affected',
   attention: 'Needs attention',
+  behind: 'Behind the standard',
   'not-read': 'Not read',
   asleep: 'Asleep',
   ok: 'As declared',
@@ -61,9 +62,47 @@ export function counts(system) {
 // purpose is asleep, not healthy.
 export function displayState(system, stale) {
   if (stale || system.state === 'unknown') return 'not-read';
-  if (system.state === 'critical' || system.state === 'attention') return system.state;
+  if (['critical', 'attention', 'behind'].includes(system.state)) return system.state;
   return system.asleep ? 'asleep' : 'ok';
 }
+
+// Where a system stands on one standard, in the words the wall uses. The fleet's own word is kept for a status the
+// wall does not know yet.
+export const STANDING_WORDS = {
+  critical: 'production affected',
+  broken: 'broken',
+  gap: 'gap',
+  behind: 'behind',
+  observed: 'observed',
+  variance: 'intended variance',
+  asleep: 'asleep',
+  exempt: 'not compared',
+  none: 'nothing to judge',
+  unchecked: 'not checked',
+  met: 'met',
+};
+
+// Every standard of the fleet for one system: its name, how the system stands on it and the fleet's words for why.
+// Data written before the fleet recorded this has none.
+export function standing(system) {
+  return (system.standards || []).map((row) => ({
+    label: row.label || row.standard,
+    status: row.status,
+    word: STANDING_WORDS[row.status] || row.status,
+    text: row.text || '',
+  }));
+}
+
+// The standing in one line, the worst first: "1 gap · 1 behind · 9 met · 1 not checked".
+export function standingSummary(system) {
+  const rows = standing(system);
+  const order = Object.keys(STANDING_WORDS);
+  const seen = [...new Set(rows.map((row) => row.status))].sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
+  return seen.map((status) => `${rows.filter((row) => row.status === status).length} ${STANDING_WORDS[status] || status}`).join(' · ');
+}
+
+// Why a system is behind the standard: one line per standard it does not keep yet.
+export const behindReasons = (system) => system.behind || [];
 
 // A deployment in a few words: how long ago it finished, or what it is doing when it has not finished or did not
 // succeed.
@@ -134,6 +173,7 @@ export function fleetFacts(data, now) {
     systems: data.systems.length,
     critical: states.filter((state) => state === 'critical').length,
     attention: states.filter((state) => state === 'attention').length,
+    behind: states.filter((state) => state === 'behind').length,
     notRead: states.filter((state) => state === 'not-read').length,
     broken: sum('broken') + sum('critical'),
     gaps: sum('gap'),
