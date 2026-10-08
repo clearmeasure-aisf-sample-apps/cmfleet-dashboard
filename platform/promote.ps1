@@ -75,6 +75,17 @@ Invoke-Api -Path "$s/interruptions/$($interruption.Id)/responsible" -Method Put 
 Invoke-Api -Path "$s/interruptions/$($interruption.Id)/submit" -Method Post -Body @{ Notes = $Reason; Result = 'Proceed' } | Out-Null
 Write-Host "PASS signed off: $Reason"
 
+# The fleet's wall marks this deployment from deployments.json, and nothing starts workflow deployments for a
+# promotion but its schedule, which GitHub runs every twenty to thirty minutes. Started here, after the sign-off, the
+# run finds the deployment executing and follows it to its end (the kit's decision 0023). Best effort: a GitHub that
+# refuses does not stop the promotion.
+$PSNativeCommandUseErrorActionPreference = $false
+$answer = @(gh workflow run deployments.yml --repo clearmeasure-aisf-sample-apps/cmfleet-dashboard 2>&1 | ForEach-Object { [string] $_ })
+$started = $LASTEXITCODE -eq 0
+$PSNativeCommandUseErrorActionPreference = $true
+if ($started) { Write-Host 'PASS workflow deployments started: the wall shows this promotion within minutes' }
+else { Write-Host "SKIP workflow deployments was not started ($(@($answer | Where-Object { $_ }) | Select-Object -First 1)): the wall shows this promotion at the next scheduled run" }
+
 $deadline = (Get-Date).AddMinutes(30)
 do {
     Start-Sleep -Seconds 15
