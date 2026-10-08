@@ -21,10 +21,12 @@ server of its own.
 | Red, "Production affected" | The last deployment to production failed, or a service every system depends on is out |
 | Dashed, "Not read" | The fleet could not read the system, or its data is older than two of its six-hourly readings |
 | Dotted, "Asleep" | Switched off on purpose |
+| A blue dot | A deployment in flight, read every minute from the file each system publishes itself (`deployments.json`): pulsing while it runs, hollow while it is queued, ringed while it waits for a sign-off, small for what ended in the last ten minutes. The tile says which release and environment |
 | "Standards: 9 met · 1 gap …" | Where the system stands on every standard of the fleet. The whole list, with the fleet's words for each, opens on demand: met, behind, gap, broken, not compared (with the declared reason), intended variance, observed, nothing to judge, not checked |
 
-A system's box in the landscape and its name on its tile open that system's runtime view (its own dashboard where it
-names none). Each tile shows what runs in production and for how long, and what is broken. The rest (every release in every
+A click on a system's box in the landscape, or on its name on its tile, zooms into that system's runtime view (its own
+dashboard where it names none): the dashboard loads in a frame over the box and grows to the whole screen, inside this
+page. "Fleet", Escape and the browser's Back zoom out; the address carries the system's name after `#`. Each tile shows what runs in production and for how long, and what is broken. The rest (every release in every
 environment, gaps, what is only observed, intended variances, cost, links) opens on demand. A system that names a
 public health address in the fleet's registry is asked from the reader's browser, so that line is true now and not
 as of the last reading.
@@ -41,6 +43,7 @@ as of the last reading.
 | Acceptance tests | `test/acceptance`: the deployed first environment, run by the release itself |
 | Code metrics | `/build.json` of every deployed site: version, commit, lines of code, tests, coverage, complexity, analyzer |
 | Health | `/health.json` of every deployed site; asked after every deployment |
+| Deployments in flight | Workflow `deployments` publishes `deployments.json` on branch `deployments`: after every build, every five minutes |
 | Environments | `tdd` (every release, by itself), `uat` and `prod` (promotions, each after a sign-off) |
 | Release | Octopus Deploy, space `cmfleet`, project `cmfleet-dashboard` |
 

@@ -10,8 +10,8 @@
     specifies delivery, not architecture). This script is the whole of its plumbing, in the order things depend on
     each other:
 
-    1. GitHub: environment "release" (main only), and the subject GitHub issues for it.
-    2. Octopus: service account cmfleet-github trusted for that subject, and the space, with that account and the
+    1. GitHub: the environments "release" and "deployments" (main only), and the subjects GitHub issues for them.
+    2. Octopus: service account cmfleet-github trusted for those subjects, and the space, with that account and the
        operator as its managers.
     3. Azure: platform/azure.bicep (a resource group per tier with the identity Octopus deploys as).
     4. In the space: environments tdd, uat, prod; a lifecycle that deploys to tdd by itself and to the others on
@@ -126,12 +126,18 @@ function Set-Named {
 }
 
 Write-Host "==> GitHub: $Repository"
-'{"deployment_branch_policy":{"protected_branches":false,"custom_branch_policies":true}}' | gh api --method PUT "repos/$Repository/environments/release" --input - --silent
-if (@(gh api "repos/$Repository/environments/release/deployment-branch-policies" --jq '.branch_policies[].name') -notcontains 'main') {
-    gh api --method POST "repos/$Repository/environments/release/deployment-branch-policies" -f name=main -f type=branch --silent
+# Two environments, each for main only: "release" hands a build to Octopus, "deployments" reads what is in flight. Each
+# is a subject of its own for Octopus to trust, so the records of one are not mixed with the other's.
+$prefix = Get-GitHubSubjectPrefix -FullName $Repository
+$subjects = [ordered] @{}
+foreach ($environment in 'release', 'deployments') {
+    '{"deployment_branch_policy":{"protected_branches":false,"custom_branch_policies":true}}' | gh api --method PUT "repos/$Repository/environments/$environment" --input - --silent
+    if (@(gh api "repos/$Repository/environments/$environment/deployment-branch-policies" --jq '.branch_policies[].name') -notcontains 'main') {
+        gh api --method POST "repos/$Repository/environments/$environment/deployment-branch-policies" -f name=main -f type=branch --silent
+    }
+    $subjects["cmfleet-dashboard-$environment"] = "${prefix}:environment:$environment"
+    Write-Host "PASS environment $environment (main only); its subject is $($subjects["cmfleet-dashboard-$environment"])"
 }
-$subject = "$(Get-GitHubSubjectPrefix -FullName $Repository):environment:release"
-Write-Host "PASS environment release (main only); its subject is $subject"
 
 Write-Host "==> Octopus: service account $serviceAccount and space $spaceName"
 $users = Invoke-Api -Path "/api/users?filter=$([uri]::EscapeDataString($serviceAccount))&take=100"
@@ -139,13 +145,15 @@ $account = @($users.Items | Where-Object { $_.Username -eq $serviceAccount }) | 
 if (-not $account) {
     $account = Invoke-Api -Path '/api/users' -Method Post -Body @{ Username = $serviceAccount; DisplayName = 'cmfleet (GitHub Actions)'; IsService = $true; IsActive = $true }
 }
-$identities = Invoke-Api -Path "/api/serviceaccounts/$($account.Id)/oidcidentities/v1?skip=0&take=100"
-if (-not @($identities.OidcIdentities | Where-Object { $_.Subject -eq $subject -and $_.Issuer -eq $githubIssuer })) {
-    Invoke-Api -Path "/api/serviceaccounts/$($account.Id)/oidcidentities/create/v1" -Method Post -Body @{ ServiceAccountId = $account.Id; Name = 'cmfleet-dashboard-release'; Issuer = $githubIssuer; Subject = $subject } | Out-Null
+foreach ($name in $subjects.Keys) {
     $identities = Invoke-Api -Path "/api/serviceaccounts/$($account.Id)/oidcidentities/v1?skip=0&take=100"
+    if (-not @($identities.OidcIdentities | Where-Object { $_.Subject -eq $subjects[$name] -and $_.Issuer -eq $githubIssuer })) {
+        Invoke-Api -Path "/api/serviceaccounts/$($account.Id)/oidcidentities/create/v1" -Method Post -Body @{ ServiceAccountId = $account.Id; Name = $name; Issuer = $githubIssuer; Subject = $subjects[$name] } | Out-Null
+    }
+    Write-Host "PASS $serviceAccount ($($account.Id)) is trusted for $($subjects[$name])"
 }
+$identities = Invoke-Api -Path "/api/serviceaccounts/$($account.Id)/oidcidentities/v1?skip=0&take=100"
 if (-not $identities.ExternalId) { throw "Octopus returned no ExternalId for $serviceAccount." }
-Write-Host "PASS $serviceAccount ($($account.Id)) is trusted for $subject"
 
 $operator = Invoke-Api -Path '/api/users/me'
 $managers = @($account.Id, $operator.Id) | Select-Object -Unique

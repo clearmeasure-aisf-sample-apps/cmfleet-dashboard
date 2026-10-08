@@ -33,7 +33,7 @@ async function dataWith(change) {
   const data = JSON.parse(await readFile(join(fixtures, 'fleet.json'), 'utf8'));
   data.generated = READ_AT;
   // The tests reach nothing outside this machine: the health addresses the systems named are real ones.
-  for (const system of data.systems) system.health = '';
+  for (const system of data.systems) Object.assign(system, { health: '', deployments: '' });
   const changed = change ? change(data) : data;
   if (changed !== null) await writeFile(join(directory, 'fleet.json'), JSON.stringify(changed ?? data));
   else await rm(join(directory, 'fleet.json'));
@@ -235,6 +235,112 @@ test('a limit that is used up says so, and only a limit that is passed gets colo
     assert.equal(await over.locator('.bar.over').count(), 1);
     assert.equal(await page.locator('.limit').count(), 2);
     assert.equal(await page.locator('#unused').textContent(), '1 other limit with nothing used.');
+  });
+});
+
+test('a deployment in flight is marked on the tile and on the box, from the file the system publishes', async () => {
+  const data = await dataWith((fleet) => {
+    fleet.systems[0].deployments = '/data/flights-one.json';
+    fleet.systems[1].deployments = '/data/flights-two.json';
+    fleet.systems[2].deployments = '/data/absent.json';
+    return fleet;
+  });
+  const fleet = JSON.parse(await readFile(join(data, 'fleet.json'), 'utf8'));
+  const entry = (state, environment, extra = {}) => ({ project: 'web', environment, release: '2.4.43', state, since: '2026-10-07T05:00:00Z', url: 'https://octopus.example/task', ...extra });
+  await writeFile(join(data, 'flights-one.json'), JSON.stringify({ generated: READ_AT, deployments: [
+    entry('executing', 'uat'), entry('waiting', 'prod'), entry('succeeded', 'tdd', { finished: '2026-10-07T05:05:00Z' }), entry('succeeded', 'tdd', { release: '2.4.42', finished: '2026-10-07T04:00:00Z' }),
+  ] }));
+  await writeFile(join(data, 'flights-two.json'), JSON.stringify({ generated: READ_AT, deployments: [entry('queued', 'prod')] }));
+  await withPage(data, SOON_AFTER, async (page, complaints) => {
+    await page.waitForSelector('body[data-flights="read"]');
+    const one = tile(page, fleet.systems[0].slug);
+    assert.deepEqual(await one.locator('.flights li').allTextContents(), [
+      'web 2.4.43 waits for a sign-off in prod', 'deploying web 2.4.43 to uat', 'web 2.4.43 reached tdd 5 min ago',
+    ]);
+    assert.equal(await one.getAttribute('data-deploying'), 'waiting');
+    assert.equal(await page.locator(`#landscape g.entity[data-box="${fleet.systems[0].slug}"] circle.flight.waiting`).count(), 1);
+    const two = tile(page, fleet.systems[1].slug);
+    assert.deepEqual(await two.locator('.flights li').allTextContents(), ['web 2.4.43 is queued for prod']);
+    assert.equal(await page.locator(`#landscape g.entity[data-box="${fleet.systems[1].slug}"] circle.flight.queued`).count(), 1);
+    const three = tile(page, fleet.systems[2].slug);
+    assert.equal(await three.locator('.flights').isHidden(), true);
+    assert.equal(await page.locator(`#landscape g.entity[data-box="${fleet.systems[2].slug}"] circle.flight`).count(), 0);
+    assert.equal(await page.locator('#fact-deploying b').textContent(), '2');
+    assert.deepEqual(complaints.filter((line) => !line.includes('404')), []);
+  });
+});
+
+test('a click on a system zooms into its dashboard inside the fleet, and Fleet, Escape and Back zoom out', async () => {
+  const data = await dataWith((fleet) => {
+    Object.assign(fleet.systems[0], { dashboard: '/health.json', runtimeView: '/health.json?view=runtime' });
+    Object.assign(fleet.systems[1], { dashboard: '', runtimeView: '' });
+    return fleet;
+  });
+  const fleet = JSON.parse(await readFile(join(data, 'fleet.json'), 'utf8'));
+  const [first, second] = fleet.systems.map((system) => system.slug);
+  await withPage(data, SOON_AFTER, async (page) => {
+    const zoomed = () => page.evaluate(() => document.body.dataset.zoomed || '');
+    assert.equal(await page.locator('#zoom').isHidden(), true);
+    assert.equal(await page.locator(`#landscape g.entity[data-box="${second}"]`).getAttribute('data-zoom'), null);
+
+    await page.locator(`#landscape g.entity[data-zoom="${first}"] rect`).first().click();
+    await page.waitForFunction((slug) => document.body.dataset.zoomed === slug, first);
+    assert.equal(await page.locator('#zoom').isVisible(), true);
+    assert.match(await page.locator('#zoom-frame').getAttribute('src'), /\/health\.json\?view=runtime$/);
+    assert.equal(await page.locator('#zoom-name').textContent(), first);
+    assert.match(page.url(), new RegExp(`#${first}$`));
+    assert.match(await page.frameLocator('#zoom-frame').locator('body').textContent(), /"status": "ok"/);
+
+    await page.locator('#zoom-out').click();
+    await page.waitForFunction(() => document.getElementById('zoom').hidden);
+    assert.equal(await zoomed(), '');
+    assert.doesNotMatch(page.url(), /#/);
+
+    await tile(page, first).locator('h3 a').click();
+    await page.waitForFunction((slug) => document.body.dataset.zoomed === slug, first);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => document.getElementById('zoom').hidden);
+
+    await page.goBack();
+    await page.waitForFunction((slug) => document.body.dataset.zoomed === slug, first);
+    await page.goBack();
+    await page.waitForFunction(() => document.getElementById('zoom').hidden);
+    assert.equal(await page.locator('article.tile').first().isVisible(), true);
+  });
+});
+
+test('an address that names a system opens it, and reduced motion opens without the animation', async () => {
+  const data = await dataWith((fleet) => {
+    Object.assign(fleet.systems[0], { dashboard: '/health.json', runtimeView: '' });
+    return fleet;
+  });
+  const fleet = JSON.parse(await readFile(join(data, 'fleet.json'), 'utf8'));
+  const server = await serve({ site, data });
+  const page = await newPage({ width: 1600, height: 1000 });
+  try {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto(`${server.url}#${fleet.systems[0].slug}`);
+    await page.waitForFunction((slug) => document.body.dataset.zoomed === slug, fleet.systems[0].slug);
+    assert.match(await page.locator('#zoom-frame').getAttribute('src'), /\/health\.json$/);
+    assert.equal(await page.locator('#zoom-own').getAttribute('href'), '/health.json');
+    await page.locator('#zoom-out').click();
+    await page.waitForFunction(() => document.getElementById('zoom').hidden);
+    assert.ok(await page.locator('article.tile').count() > 0);
+  } finally {
+    await page.close();
+    await server.close();
+  }
+});
+
+test('a system that is asleep is not asked for its health', async () => {
+  const data = await dataWith((fleet) => {
+    Object.assign(fleet.systems[0], { state: 'ok', asleep: true, behind: [], health: '/data/absent' });
+    return fleet;
+  });
+  const fleet = JSON.parse(await readFile(join(data, 'fleet.json'), 'utf8'));
+  await withPage(data, SOON_AFTER, async (page, complaints) => {
+    assert.equal(await tile(page, fleet.systems[0].slug).locator('.health').textContent(), 'health: not asked while asleep');
+    assert.deepEqual(complaints, []);
   });
 });
 

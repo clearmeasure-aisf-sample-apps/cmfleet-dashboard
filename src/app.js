@@ -1,11 +1,13 @@
 // The page: reads the fleet's data and its landscape from where the fleet publishes them, and draws the wall. What
 // each thing means is decided in model.js; this file only puts it on the page.
+import { initZoom, openFromAddress } from './zoom.js';
 import {
-  STATE_WORDS, asked, behindReasons, counts, displayState, fleetFacts, formatAge, healthWord, limitShare, limitsInUse, observed,
+  STATE_WORDS, asked, behindReasons, counts, deploymentMarks, displayState, flightState, fleetFacts, formatAge, healthWord, limitShare, limitsInUse, observed,
   prodRows, releaseGrid, serviceState, standing, standingSummary, systemLink, withoutSlug,
 } from './model.js';
 
 const RELOAD_MINUTES = 5;
+const FLIGHT_SECONDS = 60;
 const SVG = 'http://www.w3.org/2000/svg';
 const byId = (id) => document.getElementById(id);
 
@@ -46,10 +48,11 @@ function drawFacts(data, facts) {
     [String(facts.behind), 'behind the standard', facts.behind ? 'behind' : ''],
     [String(facts.broken), 'broken', ''],
     [String(facts.gaps), 'gaps', ''],
+    ['0', 'deploying', '', 'fact-deploying'],
     [facts.cost, 'this month', ''],
   ];
   if (facts.notRead) list.splice(4, 0, [String(facts.notRead), 'not read', '']);
-  byId('facts').replaceChildren(...list.map(([value, label, kind]) => el('div', { class: `fact ${kind}` }, [
+  byId('facts').replaceChildren(...list.map(([value, label, kind, id]) => el('div', { class: `fact ${kind}`, id }, [
     el('b', { class: 'num', text: value }), el('span', { text: label }),
   ])));
 }
@@ -67,13 +70,18 @@ function drawLandscape(svgText, data, facts) {
       const qualified = entity.getAttribute('data-qualified-name') || '';
       return qualified === name || qualified.endsWith(`.${name}`);
     });
-    if (!box) return;
+    if (!box) return null;
     box.setAttribute('data-state', state);
+    box.setAttribute('data-box', name);
     const title = document.createElementNS(SVG, 'title');
     title.textContent = `${label}: ${STATE_WORDS[state]}`;
     box.prepend(title);
+    return box;
   };
-  for (const system of data.systems) mark(system.slug, displayState(system, facts.stale), system.slug);
+  for (const system of data.systems) {
+    const box = mark(system.slug, displayState(system, facts.stale), system.slug);
+    if (box && systemLink(system)) box.setAttribute('data-zoom', system.slug);
+  }
   for (const service of data.shared.services || []) mark(service.id, serviceState(service, facts.stale), service.name);
   byId('landscape').replaceChildren(document.importNode(parsed, true));
 }
@@ -154,10 +162,10 @@ function drawTile(system, facts, now) {
   const state = displayState(system, facts.stale);
   const tile = el('article', { class: 'tile', 'data-state': state, 'data-system': system.slug });
   tile.append(el('header', {}, [
-    systemLink(system) ? el('h3', {}, [el('a', { href: systemLink(system), text: system.slug })]) : el('h3', { text: system.slug }),
+    systemLink(system) ? el('h3', {}, [el('a', { href: systemLink(system), 'data-zoom': system.slug, text: system.slug })]) : el('h3', { text: system.slug }),
     el('span', { class: `pill ${state}`, text: STATE_WORDS[state] }),
   ]));
-  tile.append(el('p', { class: 'sub', text: system.name }), drawProd(system, now));
+  tile.append(el('p', { class: 'sub', text: system.name }), el('ul', { class: 'flights', hidden: 'hidden' }), drawProd(system, now));
   const broken = asked(system).filter((finding) => finding.class !== 'gap');
   if (broken.length) {
     tile.append(el('ul', { class: 'asks' }, broken.map((finding) => el('li', { class: finding.class === 'critical' ? 'critical' : '', text: withoutSlug(finding.title, system.slug) }))));
@@ -166,7 +174,9 @@ function drawTile(system, facts, now) {
   // anything to learn that a system is behind and why.
   if (behindReasons(system).length) tile.append(el('ul', { class: 'behind' }, behindReasons(system).map((reason) => el('li', { text: reason }))));
   if (standing(system).length) tile.append(el('p', { class: 'standing', text: `Standards: ${standingSummary(system)}` }));
-  if (system.health) tile.append(el('p', { class: 'health', 'data-health': system.health, text: 'health: not probed yet' }));
+  // A system that is switched off on purpose is not asked: no answer would be the truth, and it would read as a failure.
+  if (system.health && state === 'asleep') tile.append(el('p', { class: 'health', text: 'health: not asked while asleep' }));
+  else if (system.health) tile.append(el('p', { class: 'health', 'data-health': system.health, text: 'health: not probed yet' }));
   tile.append(drawMore(system));
   return tile;
 }
@@ -233,6 +243,61 @@ function problem(text) {
 
 let config = null;
 let last = null;
+// What each system says is being deployed, by its name: read from the file the system itself publishes.
+const flights = new Map();
+
+// A dot on the system's box in the landscape: filled and pulsing while something runs, hollow while it waits its
+// turn, ringed while it waits for a person, small and still for what just ended.
+function drawBadge(slug, state, text) {
+  const box = document.querySelector(`#landscape g.entity[data-box="${slug}"]`);
+  if (!box) return;
+  box.querySelector('.flight')?.remove();
+  if (!state) { box.removeAttribute('data-deploying'); return; }
+  box.setAttribute('data-deploying', state);
+  const rect = box.querySelector('rect');
+  if (!rect) return;
+  const { x, y, width } = rect.getBBox();
+  const badge = document.createElementNS(SVG, 'circle');
+  badge.setAttribute('class', `flight ${state}`);
+  badge.setAttribute('cx', String(x + width - 16));
+  badge.setAttribute('cy', String(y + 16));
+  badge.setAttribute('r', '9');
+  const title = document.createElementNS(SVG, 'title');
+  title.textContent = text;
+  badge.append(title);
+  box.append(badge);
+}
+
+function drawFlights(now) {
+  let deploying = 0;
+  for (const system of last?.data.systems || []) {
+    const marks = deploymentMarks(flights.get(system.slug), now);
+    const state = flightState(marks);
+    if (state && state !== 'finished') deploying += 1;
+    const tile = document.querySelector(`article.tile[data-system="${system.slug}"]`);
+    const list = tile?.querySelector('.flights');
+    if (list) {
+      list.replaceChildren(...marks.map((mark) => el('li', { class: mark.state }, [mark.url ? el('a', { href: mark.url, text: mark.text }) : mark.text])));
+      list.hidden = marks.length === 0;
+      if (state) tile.dataset.deploying = state; else delete tile.dataset.deploying;
+    }
+    drawBadge(system.slug, state, marks.map((mark) => mark.text).join('; '));
+  }
+  const fact = byId('fact-deploying');
+  if (fact) {
+    fact.querySelector('b').textContent = String(deploying);
+    fact.classList.toggle('flight', deploying > 0);
+  }
+}
+
+// Every minute, from each system's own file. A file that cannot be read marks nothing: no marker is not a claim.
+async function loadFlights() {
+  await Promise.all((last?.data.systems || []).filter((system) => system.deployments).map(async (system) => {
+    try { flights.set(system.slug, await readJson(system.deployments)); } catch { flights.delete(system.slug); }
+  }));
+  drawFlights(new Date());
+  document.body.dataset.flights = 'read';
+}
 
 function draw(now) {
   if (!last) return;
@@ -242,6 +307,7 @@ function draw(now) {
   byId('tiles').replaceChildren(...last.data.systems.map((system) => drawTile(system, facts, now)));
   drawShared(last.data, facts);
   drawFoot(last.data, config);
+  drawFlights(now);
   document.body.dataset.ready = 'true';
 }
 
@@ -260,8 +326,14 @@ async function load() {
     document.body.dataset.ready = 'true';
   }
   draw(new Date());
-  await probeAll();
+  await Promise.all([probeAll(), loadFlights()]);
 }
 
-load();
+// A system has something to zoom into when it names a runtime view or a dashboard.
+initZoom((slug) => {
+  const system = last?.data.systems.find((one) => one.slug === slug);
+  return system && systemLink(system) ? { name: system.slug, url: systemLink(system) } : null;
+});
+load().then(openFromAddress);
 setInterval(load, RELOAD_MINUTES * 60000);
+setInterval(loadFlights, FLIGHT_SECONDS * 1000);

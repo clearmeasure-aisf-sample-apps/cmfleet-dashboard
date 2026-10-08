@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-08T02:47:40Z",
+  "generated": "2026-10-08T04:03:13Z",
   "fleet": {
     "name": "Clear Measure demo systems",
     "repository": "clearmeasure-aisf-sample-apps/demo-environment-kit",
@@ -7,9 +7,9 @@
     "policies": "clearmeasure-aisf-sample-apps/octopus-platform-hub"
   },
   "read": {
-    "findings": "2026-10-08T02:42:33Z",
-    "status": "2026-10-08T02:47:37Z",
-    "limits": "2026-10-08T02:46:35Z"
+    "findings": "2026-10-08T04:01:03Z",
+    "status": "2026-10-08T04:03:12Z",
+    "limits": "2026-10-08T04:02:49Z"
   },
   "missing": [],
   "systems": [
@@ -17,18 +17,19 @@
       "slug": "cfgitops",
       "name": "Multi-app delivery platform (Codefresh, Octopus, Argo CD)",
       "owner": "Codefresh-octopus-gitops",
-      "state": "ok",
+      "state": "behind",
       "kitBuilt": false,
       "repository": "clearmeasure-aisf-sample-apps/basic-environment-octopus-codefresh",
       "repositoryUrl": "https://github.com/clearmeasure-aisf-sample-apps/basic-environment-octopus-codefresh",
       "space": {
         "name": "AI Software Factory - Prototype",
         "url": "https://clearmeasure.octopus.app/app#/Spaces-335",
-        "activity": "idle"
+        "activity": "2 executing"
       },
       "dashboard": "https://clearmeasure-aisf-sample-apps.github.io/basic-environment-octopus-codefresh-dashboard/",
       "runtimeView": "https://clearmeasure-aisf-sample-apps.github.io/basic-environment-octopus-codefresh-dashboard/#runtime/prod",
       "health": "",
+      "deployments": "",
       "asleep": false,
       "environments": [
         {
@@ -186,7 +187,9 @@
       "runbooks": [],
       "observeOnly": "In the fleet to be seen on its dashboard. It was designed on its own and its differences are intended: the fleet records them and asks it to change nothing (Jeffrey, 2026-10-07)",
       "gaps": 0,
-      "behind": [],
+      "behind": [
+        "Deployments in flight: the system names no address of its deployments in flight (fleet.deployments of its registry file)"
+      ],
       "standards": [
         {
           "standard": "registry",
@@ -246,7 +249,13 @@
           "standard": "schedules",
           "label": "Scheduled workflows",
           "status": "met",
-          "text": "workflow release-stall-check of clearmeasure-aisf-sample-apps/basic-environment-octopus-codefresh last started on its schedule 2026-10-08 01:47 UTC (every hour)"
+          "text": "workflow release-stall-check of clearmeasure-aisf-sample-apps/basic-environment-octopus-codefresh last started on its schedule 2026-10-08 03:37 UTC (every hour)"
+        },
+        {
+          "standard": "deployments",
+          "label": "Deployments in flight",
+          "status": "behind",
+          "text": "the system names no address of its deployments in flight (fleet.deployments of its registry file)"
         },
         {
           "standard": "idle",
@@ -397,7 +406,7 @@
         }
       ],
       "cost": {
-        "monthToDate": "85.50",
+        "monthToDate": "86.60",
         "currency": "USD"
       }
     },
@@ -405,18 +414,19 @@
       "slug": "cmdemo1",
       "name": "Clear Measure work orders demo 1",
       "owner": "cmdemo1",
-      "state": "behind",
+      "state": "attention",
       "kitBuilt": true,
       "repository": "clearmeasure-aisf-sample-apps/cmdemo1-system",
       "repositoryUrl": "https://github.com/clearmeasure-aisf-sample-apps/cmdemo1-system",
       "space": {
         "name": "cmdemo1 demo",
         "url": "https://clearmeasure.octopus.app/app#/Spaces-355",
-        "activity": "1 executing, 1 queued"
+        "activity": "idle"
       },
       "dashboard": "",
       "runtimeView": "",
       "health": "",
+      "deployments": "https://raw.githubusercontent.com/clearmeasure-aisf-sample-apps/cmdemo1-system/deployments/deployments.json",
       "asleep": false,
       "environments": [
         {
@@ -438,27 +448,27 @@
           "environments": [
             {
               "name": "tdd",
-              "release": "1.0.7",
+              "release": "1.0.10",
               "state": "Success",
-              "finished": "2026-10-07 05:55",
+              "finished": "2026-10-08 03:11",
               "signOff": "no",
-              "url": "https://clearmeasure.octopus.app/app#/Spaces-355/tasks/ServerTasks-11988222"
+              "url": "https://clearmeasure.octopus.app/app#/Spaces-355/tasks/ServerTasks-11993910"
             },
             {
               "name": "uat",
-              "release": "1.0.7",
+              "release": "1.0.10",
               "state": "Success",
-              "finished": "2026-10-07 05:59",
+              "finished": "2026-10-08 03:19",
               "signOff": "yes",
-              "url": "https://clearmeasure.octopus.app/app#/Spaces-355/tasks/ServerTasks-11988242"
+              "url": "https://clearmeasure.octopus.app/app#/Spaces-355/tasks/ServerTasks-11993942"
             },
             {
               "name": "prod",
-              "release": "1.0.7",
+              "release": "1.0.10",
               "state": "Success",
-              "finished": "2026-10-07 06:04",
+              "finished": "2026-10-08 03:29",
               "signOff": "yes",
-              "url": "https://clearmeasure.octopus.app/app#/Spaces-355/tasks/ServerTasks-11988262"
+              "url": "https://clearmeasure.octopus.app/app#/Spaces-355/tasks/ServerTasks-11993989"
             }
           ]
         },
@@ -484,8 +494,8 @@
             {
               "name": "prod",
               "release": "2.4.15",
-              "state": "Queued",
-              "finished": "",
+              "state": "Success",
+              "finished": "2026-10-08 02:52",
               "signOff": "yes",
               "url": "https://clearmeasure.octopus.app/app#/Spaces-355/tasks/ServerTasks-11993790"
             }
@@ -496,27 +506,27 @@
           "environments": [
             {
               "name": "tdd",
-              "release": "1.0.68",
+              "release": "1.0.70",
               "state": "Success",
-              "finished": "2026-10-08 02:25",
+              "finished": "2026-10-08 03:43",
               "signOff": "no",
-              "url": "https://clearmeasure.octopus.app/app#/Spaces-355/tasks/ServerTasks-11993626"
+              "url": "https://clearmeasure.octopus.app/app#/Spaces-355/tasks/ServerTasks-11994035"
             },
             {
               "name": "uat",
-              "release": "1.0.68",
+              "release": "1.0.70",
               "state": "Success",
-              "finished": "2026-10-08 02:35",
+              "finished": "2026-10-08 03:51",
               "signOff": "yes",
-              "url": "https://clearmeasure.octopus.app/app#/Spaces-355/tasks/ServerTasks-11993713"
+              "url": "https://clearmeasure.octopus.app/app#/Spaces-355/tasks/ServerTasks-11994074"
             },
             {
               "name": "prod",
-              "release": "1.0.68",
-              "state": "Executing",
-              "finished": "",
+              "release": "1.0.70",
+              "state": "Success",
+              "finished": "2026-10-08 04:01",
               "signOff": "yes",
-              "url": "https://clearmeasure.octopus.app/app#/Spaces-355/tasks/ServerTasks-11993763"
+              "url": "https://clearmeasure.octopus.app/app#/Spaces-355/tasks/ServerTasks-11994113"
             }
           ]
         },
@@ -555,22 +565,22 @@
           "name": "Health report",
           "environment": "tdd",
           "state": "Success",
-          "finished": "2026-10-08 02:38",
-          "url": "https://clearmeasure.octopus.app/app#/Spaces-355/tasks/ServerTasks-11993761"
+          "finished": "2026-10-08 03:44",
+          "url": "https://clearmeasure.octopus.app/app#/Spaces-355/tasks/ServerTasks-11994043"
         },
         {
           "name": "Health report",
           "environment": "uat",
           "state": "Success",
-          "finished": "2026-10-08 02:37",
-          "url": "https://clearmeasure.octopus.app/app#/Spaces-355/tasks/ServerTasks-11993762"
+          "finished": "2026-10-08 03:37",
+          "url": "https://clearmeasure.octopus.app/app#/Spaces-355/tasks/ServerTasks-11994044"
         },
         {
           "name": "Health report",
           "environment": "prod",
           "state": "Success",
-          "finished": "2026-10-08 02:37",
-          "url": "https://clearmeasure.octopus.app/app#/Spaces-355/tasks/ServerTasks-11993760"
+          "finished": "2026-10-08 03:37",
+          "url": "https://clearmeasure.octopus.app/app#/Spaces-355/tasks/ServerTasks-11994042"
         },
         {
           "name": "Restart apps",
@@ -595,10 +605,9 @@
         }
       ],
       "observeOnly": "",
-      "gaps": 1,
+      "gaps": 0,
       "behind": [
-        "Kit templates: 9 file(s) behind the kit since 2026-10-08 01:24 UTC, within the 24 hours a system has to follow",
-        "Code metrics: no code metrics for ui, app2-ui and aisf"
+        "Deployments in flight: it does not publish its deployments in flight yet: https://raw.githubusercontent.com/clearmeasure-aisf-sample-apps/cmdemo1-system/deployments/deployments.json answers 404"
       ],
       "standards": [
         {
@@ -610,14 +619,14 @@
         {
           "standard": "templates",
           "label": "Kit templates",
-          "status": "behind",
-          "text": "9 file(s) behind the kit since 2026-10-08 01:24 UTC, within the 24 hours a system has to follow"
+          "status": "broken",
+          "text": "2 template file(s) differ from the kit"
         },
         {
           "standard": "code metrics",
           "label": "Code metrics",
-          "status": "gap",
-          "text": "no code metrics for ui, app2-ui and aisf"
+          "status": "met",
+          "text": "each of the 3 deployable(s) says where it serves them"
         },
         {
           "standard": "policy",
@@ -659,13 +668,19 @@
           "standard": "schedules",
           "label": "Scheduled workflows",
           "status": "met",
-          "text": "workflow delivery of clearmeasure-aisf-sample-apps/cmdemo1-system last started on its schedule 2026-10-08 02:03 UTC (every hour)"
+          "text": "workflow delivery of clearmeasure-aisf-sample-apps/cmdemo1-system last started on its schedule 2026-10-08 03:54 UTC (every hour)"
+        },
+        {
+          "standard": "deployments",
+          "label": "Deployments in flight",
+          "status": "behind",
+          "text": "it does not publish its deployments in flight yet: https://raw.githubusercontent.com/clearmeasure-aisf-sample-apps/cmdemo1-system/deployments/deployments.json answers 404"
         },
         {
           "standard": "idle",
           "label": "Idle cost",
           "status": "met",
-          "text": "last deployment 2026-10-08 02:35 UTC"
+          "text": "last deployment 2026-10-08 03:52 UTC"
         },
         {
           "standard": "identity",
@@ -676,10 +691,10 @@
       ],
       "findings": [
         {
-          "key": "policy/cmdemo1/code-metrics",
-          "title": "cmdemo1: no code metrics for ui, app2-ui and aisf",
+          "key": "templates/cmdemo1",
+          "title": "cmdemo1: 2 template file(s) differ from the kit",
           "scope": "system",
-          "class": "gap",
+          "class": "broken",
           "observed": false
         }
       ],
@@ -701,7 +716,7 @@
         }
       ],
       "cost": {
-        "monthToDate": "1.47",
+        "monthToDate": "1.74",
         "currency": "USD"
       }
     },
@@ -709,18 +724,19 @@
       "slug": "cmdemo2",
       "name": "CM demo 2 multi-region",
       "owner": "cmdemo2 CM demo multi-region system design",
-      "state": "ok",
+      "state": "attention",
       "kitBuilt": true,
       "repository": "clearmeasure-aisf-sample-apps/cmdemo2-system",
       "repositoryUrl": "https://github.com/clearmeasure-aisf-sample-apps/cmdemo2-system",
       "space": {
         "name": "cmdemo2 demo",
         "url": "https://clearmeasure.octopus.app/app#/Spaces-356",
-        "activity": "1 executing"
+        "activity": "idle"
       },
       "dashboard": "https://agreeable-meadow-01d3c7010.1.azurestaticapps.net",
       "runtimeView": "https://agreeable-meadow-01d3c7010.1.azurestaticapps.net/#runtime/prod",
       "health": "https://cmdemo2-prod-ui-a2b5hkfrchg3ckew.z02.azurefd.net/_healthcheck",
+      "deployments": "https://raw.githubusercontent.com/clearmeasure-aisf-sample-apps/cmdemo2-system/deployments/deployments.json",
       "asleep": false,
       "environments": [
         {
@@ -771,27 +787,27 @@
           "environments": [
             {
               "name": "tdd",
-              "release": "1.0.43",
+              "release": "1.0.44",
               "state": "Success",
-              "finished": "2026-10-08 02:43",
+              "finished": "2026-10-08 03:32",
               "signOff": "no",
-              "url": "https://clearmeasure.octopus.app/app#/Spaces-356/tasks/ServerTasks-11993758"
+              "url": "https://clearmeasure.octopus.app/app#/Spaces-356/tasks/ServerTasks-11993983"
             },
             {
               "name": "uat",
-              "release": "1.0.43",
-              "state": "Executing",
-              "finished": "",
+              "release": "1.0.44",
+              "state": "Success",
+              "finished": "2026-10-08 03:41",
               "signOff": "yes",
-              "url": "https://clearmeasure.octopus.app/app#/Spaces-356/tasks/ServerTasks-11993799"
+              "url": "https://clearmeasure.octopus.app/app#/Spaces-356/tasks/ServerTasks-11994022"
             },
             {
               "name": "prod",
-              "release": "1.0.42",
+              "release": "1.0.44",
               "state": "Success",
-              "finished": "2026-10-08 02:09",
+              "finished": "2026-10-08 03:51",
               "signOff": "yes",
-              "url": "https://clearmeasure.octopus.app/app#/Spaces-356/tasks/ServerTasks-11993598"
+              "url": "https://clearmeasure.octopus.app/app#/Spaces-356/tasks/ServerTasks-11994069"
             }
           ]
         },
@@ -837,22 +853,22 @@
           "name": "Health report",
           "environment": "tdd",
           "state": "Success",
-          "finished": "2026-10-08 02:14",
-          "url": "https://clearmeasure.octopus.app/app#/Spaces-356/tasks/ServerTasks-11993658"
+          "finished": "2026-10-08 03:14",
+          "url": "https://clearmeasure.octopus.app/app#/Spaces-356/tasks/ServerTasks-11993935"
         },
         {
           "name": "Health report",
           "environment": "uat",
           "state": "Success",
-          "finished": "2026-10-08 02:14",
-          "url": "https://clearmeasure.octopus.app/app#/Spaces-356/tasks/ServerTasks-11993659"
+          "finished": "2026-10-08 03:14",
+          "url": "https://clearmeasure.octopus.app/app#/Spaces-356/tasks/ServerTasks-11993936"
         },
         {
           "name": "Health report",
           "environment": "prod",
           "state": "Success",
-          "finished": "2026-10-08 02:14",
-          "url": "https://clearmeasure.octopus.app/app#/Spaces-356/tasks/ServerTasks-11993657"
+          "finished": "2026-10-08 03:14",
+          "url": "https://clearmeasure.octopus.app/app#/Spaces-356/tasks/ServerTasks-11993934"
         },
         {
           "name": "Restore test",
@@ -871,7 +887,9 @@
       ],
       "observeOnly": "",
       "gaps": 0,
-      "behind": [],
+      "behind": [
+        "Deployments in flight: it does not publish its deployments in flight yet: https://raw.githubusercontent.com/clearmeasure-aisf-sample-apps/cmdemo2-system/deployments/deployments.json answers 404"
+      ],
       "standards": [
         {
           "standard": "registry",
@@ -882,8 +900,8 @@
         {
           "standard": "templates",
           "label": "Kit templates",
-          "status": "met",
-          "text": "the kit's (containerapps)"
+          "status": "broken",
+          "text": "2 template file(s) differ from the kit"
         },
         {
           "standard": "code metrics",
@@ -931,13 +949,19 @@
           "standard": "schedules",
           "label": "Scheduled workflows",
           "status": "met",
-          "text": "workflow delivery of clearmeasure-aisf-sample-apps/cmdemo2-system last started on its schedule 2026-10-08 02:03 UTC (every hour)"
+          "text": "workflow delivery of clearmeasure-aisf-sample-apps/cmdemo2-system last started on its schedule 2026-10-08 03:53 UTC (every hour)"
+        },
+        {
+          "standard": "deployments",
+          "label": "Deployments in flight",
+          "status": "behind",
+          "text": "it does not publish its deployments in flight yet: https://raw.githubusercontent.com/clearmeasure-aisf-sample-apps/cmdemo2-system/deployments/deployments.json answers 404"
         },
         {
           "standard": "idle",
           "label": "Idle cost",
           "status": "met",
-          "text": "last deployment 2026-10-08 02:35 UTC"
+          "text": "last deployment 2026-10-08 03:42 UTC"
         },
         {
           "standard": "identity",
@@ -946,7 +970,15 @@
           "text": "not checked yet: whether its automation acts in GitHub as an App the organization owns (principle 008)"
         }
       ],
-      "findings": [],
+      "findings": [
+        {
+          "key": "templates/cmdemo2",
+          "title": "cmdemo2: 2 template file(s) differ from the kit",
+          "scope": "system",
+          "class": "broken",
+          "observed": false
+        }
+      ],
       "findingsUrl": "https://github.com/clearmeasure-aisf-sample-apps/demo-environment-kit/issues?q=is%3Aopen+label%3Afleet-finding+cmdemo2",
       "variances": [],
       "notRead": [],
@@ -978,7 +1010,7 @@
         }
       ],
       "cost": {
-        "monthToDate": "8.99",
+        "monthToDate": "9.26",
         "currency": "USD"
       }
     },
@@ -986,19 +1018,20 @@
       "slug": "cmdemo3",
       "name": "Clear Measure work orders demo 3 (AKS and Argo CD)",
       "owner": "cmdemo3 AKS environment with Argo CD and Octopus",
-      "state": "behind",
+      "state": "attention",
       "kitBuilt": true,
       "repository": "clearmeasure-aisf-sample-apps/cmdemo3-system",
       "repositoryUrl": "https://github.com/clearmeasure-aisf-sample-apps/cmdemo3-system",
       "space": {
         "name": "cmdemo3 demo",
         "url": "https://clearmeasure.octopus.app/app#/Spaces-357",
-        "activity": "1 executing, 1 queued"
+        "activity": "idle"
       },
       "dashboard": "https://zealous-flower-0e0653f10.5.azurestaticapps.net",
       "runtimeView": "https://zealous-flower-0e0653f10.5.azurestaticapps.net/#runtime/prod",
       "health": "https://cmdemo3-prod.20-225-155-175.sslip.io/_healthcheck",
-      "asleep": false,
+      "deployments": "https://raw.githubusercontent.com/clearmeasure-aisf-sample-apps/cmdemo3-system/deployments/deployments.json",
+      "asleep": true,
       "environments": [
         {
           "name": "tdd",
@@ -1020,26 +1053,26 @@
             {
               "name": "tdd",
               "release": "1.0.13",
-              "state": "Executing",
-              "finished": "",
+              "state": "Success",
+              "finished": "2026-10-08 02:50",
               "signOff": "no",
               "url": "https://clearmeasure.octopus.app/app#/Spaces-357/tasks/ServerTasks-11993796"
             },
             {
               "name": "uat",
-              "release": "1.0.12",
+              "release": "1.0.13",
               "state": "Success",
-              "finished": "2026-10-08 01:46",
+              "finished": "2026-10-08 02:57",
               "signOff": "yes",
-              "url": "https://clearmeasure.octopus.app/app#/Spaces-357/tasks/ServerTasks-11993499"
+              "url": "https://clearmeasure.octopus.app/app#/Spaces-357/tasks/ServerTasks-11993831"
             },
             {
               "name": "prod",
-              "release": "1.0.12",
+              "release": "1.0.13",
               "state": "Success",
-              "finished": "2026-10-08 01:52",
+              "finished": "2026-10-08 03:04",
               "signOff": "yes",
-              "url": "https://clearmeasure.octopus.app/app#/Spaces-357/tasks/ServerTasks-11993533"
+              "url": "https://clearmeasure.octopus.app/app#/Spaces-357/tasks/ServerTasks-11993859"
             }
           ]
         },
@@ -1056,19 +1089,19 @@
             },
             {
               "name": "uat",
-              "release": "1.0.8",
+              "release": "1.0.9",
               "state": "Success",
-              "finished": "2026-10-08 01:50",
+              "finished": "2026-10-08 02:59",
               "signOff": "yes",
-              "url": "https://clearmeasure.octopus.app/app#/Spaces-357/tasks/ServerTasks-11993534"
+              "url": "https://clearmeasure.octopus.app/app#/Spaces-357/tasks/ServerTasks-11993860"
             },
             {
               "name": "prod",
-              "release": "1.0.8",
+              "release": "1.0.9",
               "state": "Success",
-              "finished": "2026-10-08 01:56",
+              "finished": "2026-10-08 03:08",
               "signOff": "yes",
-              "url": "https://clearmeasure.octopus.app/app#/Spaces-357/tasks/ServerTasks-11993565"
+              "url": "https://clearmeasure.octopus.app/app#/Spaces-357/tasks/ServerTasks-11993889"
             }
           ]
         },
@@ -1077,27 +1110,27 @@
           "environments": [
             {
               "name": "tdd",
-              "release": "1.0.38",
+              "release": "1.0.39",
               "state": "Success",
-              "finished": "2026-10-08 02:33",
+              "finished": "2026-10-08 03:28",
               "signOff": "no",
-              "url": "https://clearmeasure.octopus.app/app#/Spaces-357/tasks/ServerTasks-11993730"
+              "url": "https://clearmeasure.octopus.app/app#/Spaces-357/tasks/ServerTasks-11993986"
             },
             {
               "name": "uat",
-              "release": "1.0.38",
+              "release": "1.0.39",
               "state": "Success",
-              "finished": "2026-10-08 02:37",
+              "finished": "2026-10-08 03:32",
               "signOff": "yes",
-              "url": "https://clearmeasure.octopus.app/app#/Spaces-357/tasks/ServerTasks-11993748"
+              "url": "https://clearmeasure.octopus.app/app#/Spaces-357/tasks/ServerTasks-11994003"
             },
             {
               "name": "prod",
-              "release": "1.0.38",
+              "release": "1.0.39",
               "state": "Success",
-              "finished": "2026-10-08 02:41",
+              "finished": "2026-10-08 03:35",
               "signOff": "yes",
-              "url": "https://clearmeasure.octopus.app/app#/Spaces-357/tasks/ServerTasks-11993771"
+              "url": "https://clearmeasure.octopus.app/app#/Spaces-357/tasks/ServerTasks-11994021"
             }
           ]
         },
@@ -1135,23 +1168,23 @@
         {
           "name": "Health report",
           "environment": "tdd",
-          "state": "Queued",
-          "finished": "",
-          "url": "https://clearmeasure.octopus.app/app#/Spaces-357/tasks/ServerTasks-11993815"
+          "state": "Success",
+          "finished": "2026-10-08 03:47",
+          "url": "https://clearmeasure.octopus.app/app#/Spaces-357/tasks/ServerTasks-11994091"
         },
         {
           "name": "Health report",
           "environment": "uat",
           "state": "Success",
-          "finished": "2026-10-08 02:47",
-          "url": "https://clearmeasure.octopus.app/app#/Spaces-357/tasks/ServerTasks-11993816"
+          "finished": "2026-10-08 03:47",
+          "url": "https://clearmeasure.octopus.app/app#/Spaces-357/tasks/ServerTasks-11994092"
         },
         {
           "name": "Health report",
           "environment": "prod",
           "state": "Success",
-          "finished": "2026-10-08 02:47",
-          "url": "https://clearmeasure.octopus.app/app#/Spaces-357/tasks/ServerTasks-11993814"
+          "finished": "2026-10-08 03:47",
+          "url": "https://clearmeasure.octopus.app/app#/Spaces-357/tasks/ServerTasks-11994090"
         },
         {
           "name": "Restore test",
@@ -1185,7 +1218,7 @@
       "observeOnly": "",
       "gaps": 0,
       "behind": [
-        "Kit templates: 2 file(s) behind the kit since 2026-10-08 02:32 UTC, within the 24 hours a system has to follow"
+        "Deployments in flight: it does not publish its deployments in flight yet: https://raw.githubusercontent.com/clearmeasure-aisf-sample-apps/cmdemo3-system/deployments/deployments.json answers 404"
       ],
       "standards": [
         {
@@ -1197,8 +1230,8 @@
         {
           "standard": "templates",
           "label": "Kit templates",
-          "status": "behind",
-          "text": "2 file(s) behind the kit since 2026-10-08 02:32 UTC, within the 24 hours a system has to follow"
+          "status": "broken",
+          "text": "2 template file(s) differ from the kit"
         },
         {
           "standard": "code metrics",
@@ -1221,14 +1254,14 @@
         {
           "standard": "promotion",
           "label": "Promotion",
-          "status": "met",
-          "text": "no environment behind tdd for more than 24 hours"
+          "status": "asleep",
+          "text": "the cluster is dormant"
         },
         {
           "standard": "proof",
           "label": "Proofs",
-          "status": "met",
-          "text": "2 runbook(s) succeeded within their period"
+          "status": "asleep",
+          "text": "the cluster is dormant, and its schedules with it"
         },
         {
           "standard": "capability",
@@ -1246,13 +1279,19 @@
           "standard": "schedules",
           "label": "Scheduled workflows",
           "status": "met",
-          "text": "workflow cluster-status of clearmeasure-aisf-sample-apps/cmdemo3-system last started on its schedule 2026-10-08 02:23 UTC (every 10 minutes)"
+          "text": "workflow cluster-status of clearmeasure-aisf-sample-apps/cmdemo3-system last started on its schedule 2026-10-08 03:59 UTC (every 10 minutes)"
+        },
+        {
+          "standard": "deployments",
+          "label": "Deployments in flight",
+          "status": "behind",
+          "text": "it does not publish its deployments in flight yet: https://raw.githubusercontent.com/clearmeasure-aisf-sample-apps/cmdemo3-system/deployments/deployments.json answers 404"
         },
         {
           "standard": "idle",
           "label": "Idle cost",
           "status": "met",
-          "text": "last deployment 2026-10-08 02:38 UTC"
+          "text": "last deployment 2026-10-08 03:32 UTC"
         },
         {
           "standard": "identity",
@@ -1261,7 +1300,15 @@
           "text": "not checked yet: whether its automation acts in GitHub as an App the organization owns (principle 008)"
         }
       ],
-      "findings": [],
+      "findings": [
+        {
+          "key": "templates/cmdemo3",
+          "title": "cmdemo3: 2 template file(s) differ from the kit",
+          "scope": "system",
+          "class": "broken",
+          "observed": false
+        }
+      ],
       "findingsUrl": "https://github.com/clearmeasure-aisf-sample-apps/demo-environment-kit/issues?q=is%3Aopen+label%3Afleet-finding+cmdemo3",
       "variances": [],
       "notRead": [],
@@ -1274,11 +1321,11 @@
         {
           "part": "AKS cluster aks-cmdemo3",
           "where": "southcentralus",
-          "size": "1 x Standard_D4as_v6, running"
+          "size": "1 x Standard_D4as_v6, stopped"
         }
       ],
       "cost": {
-        "monthToDate": "20.13",
+        "monthToDate": "20.89",
         "currency": "USD"
       }
     },
@@ -1286,7 +1333,7 @@
       "slug": "cmfleet",
       "name": "Fleet health dashboard",
       "owner": "Platform Hub",
-      "state": "ok",
+      "state": "behind",
       "kitBuilt": false,
       "repository": "clearmeasure-aisf-sample-apps/cmfleet-dashboard",
       "repositoryUrl": "https://github.com/clearmeasure-aisf-sample-apps/cmfleet-dashboard",
@@ -1298,6 +1345,7 @@
       "dashboard": "https://stcmfleetprodw35dyr.z19.web.core.windows.net",
       "runtimeView": "",
       "health": "https://stcmfleetprodw35dyr.z19.web.core.windows.net/health.json",
+      "deployments": "",
       "asleep": false,
       "environments": [
         {
@@ -1319,27 +1367,27 @@
           "environments": [
             {
               "name": "tdd",
-              "release": "1.0.15",
+              "release": "1.0.17",
               "state": "Success",
-              "finished": "2026-10-08 01:40",
+              "finished": "2026-10-08 03:01",
               "signOff": "no",
-              "url": "https://clearmeasure.octopus.app/app#/Spaces-378/tasks/ServerTasks-11993482"
+              "url": "https://clearmeasure.octopus.app/app#/Spaces-378/tasks/ServerTasks-11993858"
             },
             {
               "name": "uat",
-              "release": "1.0.15",
+              "release": "1.0.17",
               "state": "Success",
-              "finished": "2026-10-08 01:44",
+              "finished": "2026-10-08 03:06",
               "signOff": "yes",
-              "url": "https://clearmeasure.octopus.app/app#/Spaces-378/tasks/ServerTasks-11993504"
+              "url": "https://clearmeasure.octopus.app/app#/Spaces-378/tasks/ServerTasks-11993880"
             },
             {
               "name": "prod",
-              "release": "1.0.15",
+              "release": "1.0.17",
               "state": "Success",
-              "finished": "2026-10-08 01:48",
+              "finished": "2026-10-08 03:10",
               "signOff": "yes",
-              "url": "https://clearmeasure.octopus.app/app#/Spaces-378/tasks/ServerTasks-11993524"
+              "url": "https://clearmeasure.octopus.app/app#/Spaces-378/tasks/ServerTasks-11993900"
             }
           ]
         }
@@ -1347,7 +1395,9 @@
       "runbooks": [],
       "observeOnly": "",
       "gaps": 0,
-      "behind": [],
+      "behind": [
+        "Deployments in flight: the system names no address of its deployments in flight (fleet.deployments of its registry file)"
+      ],
       "standards": [
         {
           "standard": "registry",
@@ -1410,10 +1460,16 @@
           "text": "no workflow of clearmeasure-aisf-sample-apps/cmfleet-dashboard starts on a schedule the fleet reads"
         },
         {
+          "standard": "deployments",
+          "label": "Deployments in flight",
+          "status": "behind",
+          "text": "the system names no address of its deployments in flight (fleet.deployments of its registry file)"
+        },
+        {
           "standard": "idle",
           "label": "Idle cost",
           "status": "met",
-          "text": "last deployment 2026-10-08 01:44 UTC"
+          "text": "last deployment 2026-10-08 03:06 UTC"
         },
         {
           "standard": "identity",
@@ -1467,6 +1523,7 @@
       "dashboard": "",
       "runtimeView": "",
       "health": "https://jpcom-prod-d8e7htexeqewe0hr.z02.azurefd.net/_health/ready",
+      "deployments": "https://raw.githubusercontent.com/jeffreypalermo-sites/jpcom-system/deployments/deployments.json",
       "asleep": false,
       "environments": [
         {
@@ -1493,6 +1550,22 @@
               "finished": "2026-10-07 06:09",
               "signOff": "no",
               "url": "https://clearmeasure.octopus.app/app#/Spaces-375/tasks/ServerTasks-11988292"
+            },
+            {
+              "name": "uat",
+              "release": "",
+              "state": "not deployed",
+              "finished": "",
+              "signOff": "yes",
+              "url": ""
+            },
+            {
+              "name": "prod",
+              "release": "",
+              "state": "not deployed",
+              "finished": "",
+              "signOff": "yes",
+              "url": ""
             }
           ]
         },
@@ -1501,27 +1574,27 @@
           "environments": [
             {
               "name": "tdd",
-              "release": "1.0.14",
+              "release": "1.0.18",
               "state": "Success",
-              "finished": "2026-10-08 00:59",
+              "finished": "2026-10-08 03:53",
               "signOff": "no",
-              "url": "https://clearmeasure.octopus.app/app#/Spaces-375/tasks/ServerTasks-11993295"
+              "url": "https://clearmeasure.octopus.app/app#/Spaces-375/tasks/ServerTasks-11994102"
             },
             {
               "name": "uat",
-              "release": "1.0.14",
+              "release": "1.0.18",
               "state": "Success",
-              "finished": "2026-10-08 01:14",
+              "finished": "2026-10-08 03:59",
               "signOff": "yes",
-              "url": "https://clearmeasure.octopus.app/app#/Spaces-375/tasks/ServerTasks-11993362"
+              "url": "https://clearmeasure.octopus.app/app#/Spaces-375/tasks/ServerTasks-11994128"
             },
             {
               "name": "prod",
-              "release": "1.0.14",
-              "state": "Success",
-              "finished": "2026-10-08 01:20",
+              "release": "1.0.18",
+              "state": "Executing",
+              "finished": "",
               "signOff": "yes",
-              "url": "https://clearmeasure.octopus.app/app#/Spaces-375/tasks/ServerTasks-11993393"
+              "url": "https://clearmeasure.octopus.app/app#/Spaces-375/tasks/ServerTasks-11994154"
             }
           ]
         },
@@ -1539,18 +1612,18 @@
             {
               "name": "uat",
               "release": "1.0.39",
-              "state": "Executing",
-              "finished": "",
+              "state": "Success",
+              "finished": "2026-10-08 03:06",
               "signOff": "yes",
               "url": "https://clearmeasure.octopus.app/app#/Spaces-375/tasks/ServerTasks-11993781"
             },
             {
               "name": "prod",
-              "release": "1.0.35",
+              "release": "1.0.39",
               "state": "Success",
-              "finished": "2026-10-07 05:55",
+              "finished": "2026-10-08 03:47",
               "signOff": "yes",
-              "url": "https://clearmeasure.octopus.app/app#/Spaces-375/tasks/ServerTasks-11988143"
+              "url": "https://clearmeasure.octopus.app/app#/Spaces-375/tasks/ServerTasks-11993907"
             }
           ]
         }
@@ -1559,7 +1632,8 @@
       "observeOnly": "",
       "gaps": 1,
       "behind": [
-        "Code metrics: no code metrics for dashboard"
+        "Code metrics: no code metrics for dashboard",
+        "Deployments in flight: it does not publish its deployments in flight yet: https://raw.githubusercontent.com/jeffreypalermo-sites/jpcom-system/deployments/deployments.json answers 404"
       ],
       "standards": [
         {
@@ -1584,7 +1658,7 @@
           "standard": "policy",
           "label": "Policies: sign-off, restore point, health check",
           "status": "met",
-          "text": "sign-off and restore point in 2 process(es) for prod; a health check after the update in 4 deployment(s) to an environment"
+          "text": "sign-off and restore point in 3 process(es) for prod; a health check after the update in 6 deployment(s) to an environment"
         },
         {
           "standard": "deployment",
@@ -1623,10 +1697,16 @@
           "text": "workflow capabilities of jeffreypalermo-sites/jpcom-system last started on its schedule 2026-10-07 07:06 UTC (every 24 hours)"
         },
         {
+          "standard": "deployments",
+          "label": "Deployments in flight",
+          "status": "behind",
+          "text": "it does not publish its deployments in flight yet: https://raw.githubusercontent.com/jeffreypalermo-sites/jpcom-system/deployments/deployments.json answers 404"
+        },
+        {
           "standard": "idle",
           "label": "Idle cost",
           "status": "met",
-          "text": "last deployment 2026-10-08 02:30 UTC"
+          "text": "last deployment 2026-10-08 03:55 UTC"
         },
         {
           "standard": "identity",
@@ -1645,7 +1725,14 @@
         }
       ],
       "findingsUrl": "https://github.com/clearmeasure-aisf-sample-apps/demo-environment-kit/issues?q=is%3Aopen+label%3Afleet-finding+jpcom",
-      "variances": [],
+      "variances": [
+        {
+          "variance": "The operator account (a machine user) administers the app repository jeffreypalermo-sites/jeffreypalermo.com, which existed before the system: phase 4 set variables, an environment and a ruleset there and merged its own pull request",
+          "reason": "The repository belongs to Jeffrey, in his organization; its owner session states that he had the kit adopt it on 2026-10-06 and made the operator account its administrator. Principle 008 asks for the reason where a user's identity is used. Declared by the system's owner on 2026-10-08",
+          "rule": "",
+          "project": ""
+        }
+      ],
       "notRead": [],
       "parts": [
         {
@@ -1665,7 +1752,7 @@
         }
       ],
       "cost": {
-        "monthToDate": "3.88",
+        "monthToDate": "4.18",
         "currency": "USD"
       }
     }
@@ -1676,13 +1763,13 @@
         "id": "octopus",
         "name": "Octopus Deploy",
         "state": "ok",
-        "detail": "5 of 20 tasks"
+        "detail": "4 of 20 tasks"
       },
       {
         "id": "kit",
         "name": "Delivery standard",
         "state": "ok",
-        "detail": "green at 185836d"
+        "detail": "green at f6d1684"
       },
       {
         "id": "policies",
@@ -1699,16 +1786,34 @@
         "of": "2"
       },
       {
+        "limit": "Container Apps express environments",
+        "where": "australiaeast",
+        "used": "1",
+        "of": "250"
+      },
+      {
         "limit": "Container Apps environments",
         "where": "brazilsouth",
         "used": "0",
         "of": "2"
       },
       {
+        "limit": "Container Apps express environments",
+        "where": "brazilsouth",
+        "used": "1",
+        "of": "250"
+      },
+      {
         "limit": "Container Apps environments",
         "where": "centralindia",
         "used": "0",
         "of": "2"
+      },
+      {
+        "limit": "Container Apps express environments",
+        "where": "centralindia",
+        "used": "1",
+        "of": "250"
       },
       {
         "limit": "Container Apps environments",
@@ -1723,10 +1828,22 @@
         "of": "2"
       },
       {
+        "limit": "Container Apps express environments",
+        "where": "eastus2",
+        "used": "4",
+        "of": "250"
+      },
+      {
         "limit": "Container Apps environments",
         "where": "germanywestcentral",
         "used": "0",
         "of": "2"
+      },
+      {
+        "limit": "Container Apps express environments",
+        "where": "germanywestcentral",
+        "used": "2",
+        "of": "250"
       },
       {
         "limit": "Container Apps environments",
@@ -1735,10 +1852,22 @@
         "of": "2"
       },
       {
+        "limit": "Container Apps express environments",
+        "where": "japaneast",
+        "used": "1",
+        "of": "250"
+      },
+      {
         "limit": "Container Apps environments",
         "where": "southafricanorth",
         "used": "0",
         "of": "2"
+      },
+      {
+        "limit": "Container Apps express environments",
+        "where": "southafricanorth",
+        "used": "1",
+        "of": "250"
       },
       {
         "limit": "Container Apps environments",
@@ -1753,10 +1882,22 @@
         "of": "2"
       },
       {
+        "limit": "Container Apps express environments",
+        "where": "southeastasia",
+        "used": "1",
+        "of": "250"
+      },
+      {
         "limit": "Container Apps environments",
         "where": "uaenorth",
         "used": "0",
         "of": "2"
+      },
+      {
+        "limit": "Container Apps express environments",
+        "where": "uaenorth",
+        "used": "1",
+        "of": "250"
       },
       {
         "limit": "Container Apps environments",
@@ -1765,10 +1906,22 @@
         "of": "2"
       },
       {
+        "limit": "Container Apps express environments",
+        "where": "uksouth",
+        "used": "1",
+        "of": "250"
+      },
+      {
         "limit": "Container Apps environments",
         "where": "westus2",
         "used": "0",
         "of": "2"
+      },
+      {
+        "limit": "Container Apps express environments",
+        "where": "westus2",
+        "used": "1",
+        "of": "250"
       },
       {
         "limit": "Container Apps environments",
@@ -1785,19 +1938,19 @@
       {
         "limit": "Static Web Apps on the Free plan",
         "where": "centralus",
-        "used": "10",
+        "used": "6",
         "of": "10"
       },
       {
         "limit": "vCPUs",
         "where": "southcentralus",
-        "used": "14",
+        "used": "10",
         "of": "65"
       },
       {
         "limit": "Octopus tasks running or queued, in the whole instance",
         "where": "clearmeasure.octopus.app",
-        "used": "5",
+        "used": "4",
         "of": "20"
       }
     ],
@@ -1805,12 +1958,12 @@
     "cost": [
       {
         "of": "the fleet",
-        "monthToDate": "119.97",
+        "monthToDate": "122.68",
         "currency": "USD"
       },
       {
         "of": "the rest of the subscription",
-        "monthToDate": "171.77",
+        "monthToDate": "172.33",
         "currency": "USD"
       }
     ]
