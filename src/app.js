@@ -2,8 +2,8 @@
 // each thing means is decided in model.js; this file only puts it on the page.
 import { initZoom, openFromAddress } from './zoom.js';
 import {
-  STATE_WORDS, asked, behindReasons, counts, deploymentMarks, displayState, flightState, fleetFacts, formatAge, healthWord, limitShare, limitsInUse, observed,
-  prodRows, releaseGrid, serviceState, standing, standingSummary, systemLink, withoutSlug,
+  STATE_WORDS, asked, behindReasons, boxLinks, counts, deploymentMarks, displayState, flightState, fleetFacts, formatAge, formatWhen, healthWord, hostOf, limitShare, limitsInUse,
+  matches, observed, releaseGrid, releaseWord, serviceState, standing, standingSummary, systemDoor, systemLink, withoutSlug,
 } from './model.js';
 
 const RELOAD_MINUTES = 5;
@@ -57,6 +57,24 @@ function drawFacts(data, facts) {
   ])));
 }
 
+// A box that opens what it stands for beside this page, for the mouse and for the keyboard.
+function opens(box, name, url) {
+  box.setAttribute('data-open', url);
+  box.setAttribute('data-box', name);
+  box.setAttribute('role', 'link');
+  box.setAttribute('tabindex', '0');
+  const title = box.querySelector(':scope > title') || box.insertBefore(document.createElementNS(SVG, 'title'), box.firstChild);
+  title.textContent = [title.textContent, `Opens ${hostOf(url)} in a new tab`].filter(Boolean).join('. ');
+}
+
+// Every box that is not a system, and the frame of the subscription, opens what it stands for.
+function openOthers(drawing, data) {
+  for (const [name, url] of Object.entries(boxLinks(data))) {
+    const box = [...drawing.querySelectorAll('g.entity, g.cluster')].find((one) => (one.getAttribute('data-qualified-name') || '') === name);
+    if (box) opens(box, name, url);
+  }
+}
+
 // The landscape is the fleet's own drawing. Its boxes are found by name and take the state of what they stand for.
 function drawLandscape(svgText, data, facts) {
   const parsed = new DOMParser().parseFromString(svgText, 'image/svg+xml').documentElement;
@@ -78,36 +96,40 @@ function drawLandscape(svgText, data, facts) {
     box.prepend(title);
     return box;
   };
+  // No box is left that does nothing. A system zooms into its runtime view or its dashboard; one that names neither
+  // opens its space in Octopus.
   for (const system of data.systems) {
     const box = mark(system.slug, displayState(system, facts.stale), system.slug);
-    if (box && systemLink(system)) box.setAttribute('data-zoom', system.slug);
+    if (!box) continue;
+    if (systemLink(system)) box.setAttribute('data-zoom', system.slug);
+    else if (systemDoor(system)) opens(box, system.slug, systemDoor(system));
   }
   for (const service of data.shared.services || []) mark(service.id, serviceState(service, facts.stale), service.name);
+  openOthers(parsed, data);
   byId('landscape').replaceChildren(document.importNode(parsed, true));
 }
 
 const titles = (findings, slug) => el('ul', {}, findings.map((finding) => el('li', { text: withoutSlug(finding.title, slug) })));
 
-function drawProd(system, now) {
-  const rows = prodRows(system, now);
-  if (!rows.length) return el('p', { class: 'sub', text: 'Nothing read in production.' });
-  return el('ul', { class: 'prod' }, rows.map((row) => el('li', { class: row.failed ? 'failed' : '' }, [
-    el('span', { class: 'what', text: row.project }),
-    row.url ? el('a', { class: 'num', href: row.url, text: row.release }) : el('span', { class: 'num', text: row.release }),
-    el('span', { class: 'age', text: row.when }),
-  ])));
-}
-
+// A system as Octopus draws a project group: each project, and in each environment a tile for how its last
+// deployment ended, the release and when. A release behind the first environment's keeps its colour for that.
 function drawReleases(system) {
   const grid = releaseGrid(system);
-  if (!grid.rows.length) return null;
-  const table = el('table', {}, [el('tr', {}, [el('th', { text: 'Project' }), ...grid.names.map((name) => el('th', { text: name }))])]);
+  if (!grid.rows.length) return { count: 0, grid: el('p', { class: 'sub', text: 'Nothing read in any environment.' }) };
+  const table = el('table', { class: 'releases' }, [el('tr', {}, [el('th', {}, [el('span', { class: 'sr', text: 'Project' })]), ...grid.names.map((name) => el('th', { text: name }))])]);
   for (const row of grid.rows) {
-    table.append(el('tr', {}, [el('td', { text: row.project }), ...row.cells.map((cell) => el('td', {
-      class: `rel ${cell.kind}`, title: cell.finished ? `finished ${cell.finished} UTC` : '',
-    }, cell.url ? [el('a', { href: cell.url, text: cell.text })] : [cell.text]))]));
+    table.append(el('tr', {}, [
+      el('td', { class: 'project' }, [el('span', { class: 'cell' }, [el('span', { class: 'icon', 'aria-hidden': 'true' }), el('span', { class: 'what', text: row.project })])]),
+      ...row.cells.map((cell) => el('td', { class: `rel ${cell.kind}`, title: cell.finished ? `finished ${cell.finished} UTC` : '' }, [el('span', { class: 'cell' }, [
+        el('span', { class: 'status', role: 'img', 'aria-label': releaseWord(cell, grid.names[0]) }),
+        el('span', { class: 'release' }, [
+          cell.url ? el('a', { class: 'num', href: cell.url, text: cell.text }) : el('span', { class: 'num', text: cell.text }),
+          cell.finished ? el('span', { class: 'when', text: formatWhen(cell.finished) }) : null,
+        ]),
+      ])])),
+    ]));
   }
-  return el('div', { class: 'grid-wrap' }, [table]);
+  return { count: grid.rows.length, grid: el('div', { class: 'grid-wrap' }, [table]) };
 }
 
 // Where the system stands on every standard of the fleet, with the fleet's own words for why.
@@ -147,9 +169,9 @@ function drawMore(system) {
     count.observed ? `${count.observed} observed` : '',
     system.variances.length ? plural(system.variances.length, 'variance', 'variances') : '',
     standing(system).length ? 'every standard' : '',
-    'releases, cost, links',
+    'cost, links',
   ].filter(Boolean).join(' · ');
-  const more = el('details', {}, [el('summary', { text: summary }), drawStanding(system), drawReleases(system)]);
+  const more = el('details', {}, [el('summary', { text: summary }), drawStanding(system)]);
   if (count.observed) more.append(el('h4', { text: 'Observed, nothing asked' }), titles(observed(system), system.slug));
   if (system.variances.length) {
     more.append(el('h4', { text: 'Intended variances' }), el('ul', {}, system.variances.map((variance) => el('li', {}, [variance.variance, el('span', { text: ` ${variance.reason}` })]))));
@@ -158,14 +180,20 @@ function drawMore(system) {
   return more;
 }
 
-function drawTile(system, facts, now) {
+function drawTile(system, facts) {
   const state = displayState(system, facts.stale);
+  const releases = drawReleases(system);
   const tile = el('article', { class: 'tile', 'data-state': state, 'data-system': system.slug });
   tile.append(el('header', {}, [
-    systemLink(system) ? el('h3', {}, [el('a', { href: systemLink(system), 'data-zoom': system.slug, text: system.slug })]) : el('h3', { text: system.slug }),
+    el('h3', {}, [
+      systemLink(system) ? el('a', { href: systemLink(system), 'data-zoom': system.slug, text: system.slug })
+        : systemDoor(system) ? el('a', { href: systemDoor(system), target: '_blank', rel: 'noopener', text: system.slug }) : system.slug,
+    ]),
+    releases.count ? el('span', { class: 'count', title: plural(releases.count, 'project', 'projects'), text: String(releases.count) }) : null,
+    el('span', { class: 'sub', text: system.name }),
     el('span', { class: `pill ${state}`, text: STATE_WORDS[state] }),
   ]));
-  tile.append(el('p', { class: 'sub', text: system.name }), el('ul', { class: 'flights', hidden: 'hidden' }), drawProd(system, now));
+  tile.append(releases.grid, el('ul', { class: 'flights', hidden: 'hidden' }));
   const broken = asked(system).filter((finding) => finding.class !== 'gap');
   if (broken.length) {
     tile.append(el('ul', { class: 'asks' }, broken.map((finding) => el('li', { class: finding.class === 'critical' ? 'critical' : '', text: withoutSlug(finding.title, system.slug) }))));
@@ -185,8 +213,10 @@ function drawTile(system, facts, now) {
 function drawShared(data, facts) {
   byId('services').replaceChildren(...(data.shared.services || []).map((service) => {
     const state = serviceState(service, facts.stale);
+    const url = boxLinks(data)[service.id];
     return el('div', { class: 'service', 'data-state': state, 'data-service': service.id }, [
-      el('b', { text: service.name }), el('span', { class: `pill ${state}`, text: STATE_WORDS[state] }),
+      url ? el('b', {}, [el('a', { href: url, target: '_blank', rel: 'noopener', text: service.name })]) : el('b', { text: service.name }),
+      el('span', { class: `pill ${state}`, text: STATE_WORDS[state] }),
       el('span', { class: 'detail', text: service.detail || '' }),
     ]);
   }));
@@ -201,6 +231,35 @@ function drawShared(data, facts) {
     ]);
   }));
   byId('unused').textContent = limits.unused ? `${plural(limits.unused, 'other limit', 'other limits')} with nothing used.` : '';
+}
+
+// The doors out of this page: the Octopus instance every system is released in, the delivery standard, the data.
+function drawDoors(data) {
+  const door = (id, url) => {
+    const link = byId(id);
+    if (url) link.setAttribute('href', url);
+    link.hidden = !url;
+  };
+  const kit = data.fleet.repository ? `https://github.com/${data.fleet.repository}` : '';
+  door('open-octopus', data.fleet.octopus);
+  door('nav-octopus', data.fleet.octopus);
+  door('open-kit', kit);
+  door('nav-kit', kit);
+  door('nav-data', `${config.dataUrl}fleet.json`);
+}
+
+// What the reader typed in the bar: the systems that have it in their name, in what they are or in a project's name.
+function find() {
+  const typed = byId('find').value;
+  const tiles = [...document.querySelectorAll('article.tile')];
+  let shown = 0;
+  for (const tile of tiles) {
+    const system = last?.data.systems.find((one) => one.slug === tile.dataset.system);
+    tile.hidden = Boolean(system) && !matches(system, typed);
+    if (!tile.hidden) shown += 1;
+  }
+  byId('shown').textContent = tiles.length ? `${shown} of ${plural(tiles.length, 'system', 'systems')}` : '';
+  byId('no-match').hidden = shown > 0 || tiles.length === 0;
 }
 
 function drawFoot(data, config) {
@@ -309,9 +368,11 @@ function draw(now) {
   const facts = fleetFacts(last.data, now);
   drawFacts(last.data, facts);
   if (last.svg) drawLandscape(last.svg, last.data, facts);
-  byId('tiles').replaceChildren(...last.data.systems.map((system) => drawTile(system, facts, now)));
+  byId('tiles').replaceChildren(...last.data.systems.map((system) => drawTile(system, facts)));
+  find();
   drawShared(last.data, facts);
   drawFoot(last.data, config);
+  drawDoors(last.data);
   drawFlights(now);
   document.body.dataset.ready = 'true';
 }
@@ -339,6 +400,27 @@ initZoom((slug) => {
   const system = last?.data.systems.find((one) => one.slug === slug);
   return system && systemLink(system) ? { name: system.slug, url: systemLink(system) } : null;
 });
+// A box of the landscape that is not a system opens what it stands for, beside this page: with a click, or with Enter
+// when the keyboard is on it.
+function openBox(event) {
+  if (event.type === 'keydown' && event.key !== 'Enter') return;
+  const box = event.target.closest?.('[data-open]');
+  if (!box) return;
+  event.preventDefault();
+  window.open(box.dataset.open, '_blank', 'noopener');
+}
+byId('landscape').addEventListener('click', openBox);
+byId('landscape').addEventListener('keydown', openBox);
+byId('find').addEventListener('input', find);
+// The sections beside the page scroll to their part of it. The address is left alone: after "#" it names the system
+// that is zoomed into.
+for (const link of document.querySelectorAll('.side a[data-go]')) {
+  link.addEventListener('click', (event) => {
+    event.preventDefault();
+    byId(link.dataset.go)?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    for (const other of document.querySelectorAll('.side a[data-go]')) other.classList.toggle('on', other === link);
+  });
+}
 load().then(openFromAddress);
 setInterval(load, RELOAD_MINUTES * 60000);
 setInterval(loadFlights, FLIGHT_SECONDS * 1000);

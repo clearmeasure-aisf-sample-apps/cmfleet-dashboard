@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  FINISHED_MINUTES, STALE_AFTER_HOURS, ageHours, asked, behindReasons, counts, deploymentMarks, deploymentText, flightState, deploymentWord, displayState, fleetFacts, formatAge, healthWord, isStale,
-  limitShare, limitsInUse, observed, parseUtc, prodEnvironments, prodRows, releaseGrid, serviceState, standing,
-  standingSummary, systemLink, withoutSlug,
+  AZURE_PORTAL, boxLinks, hostOf,
+  FINISHED_MINUTES, STALE_AFTER_HOURS, ageHours, asked, behindReasons, counts, deploymentMarks, deploymentText, flightState, deploymentWord, displayState, findText, fleetFacts, formatAge, formatWhen,
+  healthWord, isStale, limitShare, limitsInUse, matches, observed, parseUtc, prodEnvironments, prodRows, releaseGrid, releaseWord, serviceState, standing,
+  standingSummary, systemDoor, systemLink, withoutSlug,
 } from '../../src/model.js';
 
 const now = new Date('2026-10-07T12:00:00Z');
@@ -252,4 +253,55 @@ test('the word a box carries: what is in flight wins over what ended, and nothin
   assert.deepEqual(deploymentMarks(undefined, now), []);
   assert.deepEqual(deploymentMarks({ deployments: 'none' }, now), []);
   assert.deepEqual(deploymentMarks({ deployments: [flight('succeeded', { finished: 'not a time' })] }, now), []);
+});
+
+test('when a deployment finished is written as Octopus writes it, in the zone asked for', () => {
+  assert.equal(formatWhen('2026-10-08 13:18', 'UTC'), 'Oct 8, 2026 1:18 PM');
+  assert.equal(formatWhen('2026-10-08 13:18', 'America/Chicago'), 'Oct 8, 2026 8:18 AM');
+  assert.equal(formatWhen('2026-10-08T00:05:09Z', 'UTC'), 'Oct 8, 2026 12:05 AM');
+  assert.equal(formatWhen('2026-10-08 03:00', 'America/Chicago'), 'Oct 7, 2026 10:00 PM');
+  assert.match(formatWhen('2026-10-08 13:18'), /^Oct [789], 2026 \d{1,2}:\d{2} [AP]M$/);
+  assert.equal(formatWhen(''), '');
+  assert.equal(formatWhen('yesterday'), '');
+});
+
+test('a cell of the release grid has words for a reader who does not see its tile', () => {
+  const grid = releaseGrid(system({ projects: [
+    project('web', { tdd: ['2.0', 'Success', 'x'], uat: ['1.9', 'Success', 'x'], prod: ['1.9', 'Failed', 'x'] }),
+    project('api', { tdd: ['3.1', 'Success', 'x'] }),
+  ] }));
+  assert.deepEqual(grid.rows[0].cells.map((cell) => releaseWord(cell, grid.names[0])), ['deployed', 'deployed, behind tdd', 'failed']);
+  assert.deepEqual(grid.rows[1].cells.map((cell) => releaseWord(cell, grid.names[0])), ['deployed', 'not deployed', 'not deployed']);
+});
+
+test('a system is found by its name, what it is, its owner or a project, whatever the case', () => {
+  const one = system({ owner: 'Platform Hub', projects: [project('demo-web', { tdd: ['1.0', 'Success', 'x'] }), project('demo-api', {})] });
+  assert.equal(findText(one), 'demo a demo system platform hub demo-web demo-api');
+  assert.equal(findText(system()), 'demo a demo system');
+  for (const typed of ['', '   ', undefined, 'DEMO', 'a demo', ' hub ', 'demo-API']) assert.equal(matches(one, typed), true, String(typed));
+  for (const typed of ['prod', 'demo-ui', 'x']) assert.equal(matches(one, typed), false, typed);
+});
+
+test('every box of the landscape that is not a system leads to what it stands for', () => {
+  const fleet = { repository: 'acme/kit', octopus: 'https://acme.octopus.app', policies: 'acme/policies' };
+  assert.deepEqual(boxLinks({ fleet }), {
+    operators: 'https://github.com/acme/kit/issues?q=is%3Aissue+state%3Aopen+label%3Afleet-finding',
+    fleet: 'https://github.com/acme/kit/tree/main/fleet',
+    octopus: 'https://acme.octopus.app',
+    kit: 'https://github.com/acme/kit/tree/green',
+    policies: 'https://github.com/acme/policies',
+    subscription: AZURE_PORTAL,
+  });
+  assert.equal(boxLinks({ fleet: { ...fleet, azurePortal: 'https://portal.azure.com/#@acme/resource/subscriptions/1' } }).subscription, 'https://portal.azure.com/#@acme/resource/subscriptions/1');
+  assert.deepEqual(boxLinks({ fleet: {} }), { subscription: AZURE_PORTAL });
+  assert.deepEqual(boxLinks({}), { subscription: AZURE_PORTAL });
+  assert.equal(hostOf('https://github.com/acme/kit/tree/green'), 'github.com');
+  assert.equal(hostOf(AZURE_PORTAL), 'portal.azure.com');
+  assert.equal(hostOf('not an address'), '');
+});
+
+test('a system with nothing to zoom into leads to its space in Octopus, then to its repository', () => {
+  assert.equal(systemDoor(system({ space: { url: 'https://acme.octopus.app/app#/Spaces-1' }, repositoryUrl: 'https://github.com/acme/demo-system' })), 'https://acme.octopus.app/app#/Spaces-1');
+  assert.equal(systemDoor(system({ space: { url: '' }, repositoryUrl: 'https://github.com/acme/demo-system' })), 'https://github.com/acme/demo-system');
+  assert.equal(systemDoor(system()), '');
 });
