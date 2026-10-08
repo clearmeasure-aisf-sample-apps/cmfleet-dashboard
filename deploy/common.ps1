@@ -20,7 +20,8 @@ function Get-SiteAccount {
     # derives from the resource group, so nothing here spells it.
     param([Parameter(Mandatory)] [string] $Environment, [Parameter(Mandatory)] [string] $ResourceGroup)
     $name = $Environment.ToLowerInvariant()
-    $account = ([string] (az storage account list --resource-group $ResourceGroup --query "[?tags.system=='cmfleet' && tags.deployable=='dashboard' && tags.environment=='$name'].name | [0]" --only-show-errors --output tsv)).Trim()
+    # In a string: a command that prints nothing gives nothing at all, and nothing has no Trim().
+    $account = "$(az storage account list --resource-group $ResourceGroup --query "[?tags.system=='cmfleet' && tags.deployable=='dashboard' && tags.environment=='$name'].name | [0]" --only-show-errors --output tsv)".Trim()
     if (-not $account) { Stop-Step "No storage account of the dashboard for $name in $ResourceGroup." }
     return $account
 }
@@ -29,7 +30,14 @@ function Get-SiteUrl {
     # The address Azure gave the environment's site. Asked each time: nothing stores it.
     param([Parameter(Mandatory)] [string] $Environment, [Parameter(Mandatory)] [string] $ResourceGroup)
     $account = Get-SiteAccount -Environment $Environment -ResourceGroup $ResourceGroup
-    $url = ([string] (az storage account show --name $account --resource-group $ResourceGroup --query primaryEndpoints.web --only-show-errors --output tsv)).Trim()
+    $url = "$(az storage account show --name $account --resource-group $ResourceGroup --query primaryEndpoints.web --only-show-errors --output tsv)".Trim()
     if (-not $url) { Stop-Step "Azure returned no website address for $account in $ResourceGroup." }
     return $url.TrimEnd('/')
+}
+
+function Test-StaticSite {
+    # Whether the resource group still holds a Static Web App of this name. Read from the group's own list, which an
+    # identity with a role on that group may read.
+    param([Parameter(Mandatory)] [string] $Name, [Parameter(Mandatory)] [string] $ResourceGroup)
+    return [bool] "$(az staticwebapp list --resource-group $ResourceGroup --query "[?name=='$Name'].name | [0]" --only-show-errors --output tsv)".Trim()
 }
