@@ -1,4 +1,5 @@
-// One tier's deploy identity: id-cmfleet-deploy-<tier>, trusted for the tier's environments, Contributor on its group.
+// One tier's deploy identity: id-cmfleet-deploy-<tier>, trusted for the tier's environments, Contributor on its group
+// and writer of the blobs in it.
 targetScope = 'resourceGroup'
 
 param location string
@@ -34,6 +35,17 @@ resource role 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
     principalId: deploy.properties.principalId
     principalType: 'ServicePrincipal'
     roleDefinitionId: contributor
+  }
+}
+
+// The site's files are written as this identity, with no key: Contributor manages the account, and this role lets it
+// write the files in it.
+resource files 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(resourceGroup().id, deploy.id, 'blob-data-contributor')
+  properties: {
+    principalId: deploy.properties.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
   }
 }
 

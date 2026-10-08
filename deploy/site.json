@@ -2,32 +2,39 @@
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
   "metadata": {
-    "description": "What one environment of the fleet health dashboard is made of: one Azure Static Web App on the Free plan. No repository is linked: the release's files are deployed with the site's deployment token, read at deploy time and never stored. The properties stay empty: the platform records who deployed last itself, and a value here would show as drift."
+    "description": "What one environment of the fleet health dashboard is made of: one storage account that serves the site's files as a static website. No key opens it: shared keys are off, and the release writes the files as the tier's deploy identity (Storage Blob Data Contributor on the resource group, platform/azure.bicep). The website itself is switched on by the release (deploy/deploy.ps1): Azure Resource Manager has no property for it."
   },
   "parameters": {
     "environmentName": { "type": "string" },
-    "location": { "type": "string", "defaultValue": "centralus" }
+    "location": { "type": "string", "defaultValue": "[resourceGroup().location]" }
   },
   "variables": {
-    "siteName": "[format('swa-cmfleet-{0}-dashboard', parameters('environmentName'))]"
+    "accountName": "[format('stcmfleet{0}{1}', parameters('environmentName'), take(uniqueString(resourceGroup().id), 6))]"
   },
   "resources": [
     {
-      "type": "Microsoft.Web/staticSites",
-      "apiVersion": "2024-04-01",
-      "name": "[variables('siteName')]",
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-05-01",
+      "name": "[variables('accountName')]",
       "location": "[parameters('location')]",
       "tags": {
         "system": "cmfleet",
         "environment": "[parameters('environmentName')]",
         "deployable": "dashboard"
       },
-      "sku": { "name": "Free", "tier": "Free" },
-      "properties": {}
+      "sku": { "name": "Standard_LRS" },
+      "kind": "StorageV2",
+      "properties": {
+        "accessTier": "Hot",
+        "allowBlobPublicAccess": false,
+        "allowSharedKeyAccess": false,
+        "minimumTlsVersion": "TLS1_2",
+        "supportsHttpsTrafficOnly": true
+      }
     }
   ],
   "outputs": {
-    "siteName": { "type": "string", "value": "[variables('siteName')]" },
-    "url": { "type": "string", "value": "[format('https://{0}', reference(resourceId('Microsoft.Web/staticSites', variables('siteName')), '2024-04-01').defaultHostname)]" }
+    "accountName": { "type": "string", "value": "[variables('accountName')]" },
+    "url": { "type": "string", "value": "[reference(resourceId('Microsoft.Storage/storageAccounts', variables('accountName')), '2023-05-01').primaryEndpoints.web]" }
   }
 }

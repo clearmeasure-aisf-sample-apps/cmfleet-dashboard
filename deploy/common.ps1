@@ -15,15 +15,21 @@ function Stop-Step {
     exit 1
 }
 
-function Get-SiteName {
-    param([Parameter(Mandatory)] [string] $Environment)
-    return "swa-cmfleet-$($Environment.ToLowerInvariant())-dashboard"
+function Get-SiteAccount {
+    # The storage account that serves the environment's site, found by its tags: its name ends in characters Azure
+    # derives from the resource group, so nothing here spells it.
+    param([Parameter(Mandatory)] [string] $Environment, [Parameter(Mandatory)] [string] $ResourceGroup)
+    $name = $Environment.ToLowerInvariant()
+    $account = ([string] (az storage account list --resource-group $ResourceGroup --query "[?tags.system=='cmfleet' && tags.deployable=='dashboard' && tags.environment=='$name'].name | [0]" --only-show-errors --output tsv)).Trim()
+    if (-not $account) { Stop-Step "No storage account of the dashboard for $name in $ResourceGroup." }
+    return $account
 }
 
 function Get-SiteUrl {
     # The address Azure gave the environment's site. Asked each time: nothing stores it.
     param([Parameter(Mandatory)] [string] $Environment, [Parameter(Mandatory)] [string] $ResourceGroup)
-    $hostname = ([string] (az staticwebapp show --name (Get-SiteName -Environment $Environment) --resource-group $ResourceGroup --query defaultHostname --only-show-errors --output tsv)).Trim()
-    if (-not $hostname) { Stop-Step "Azure returned no address for $(Get-SiteName -Environment $Environment) in $ResourceGroup." }
-    return "https://$hostname"
+    $account = Get-SiteAccount -Environment $Environment -ResourceGroup $ResourceGroup
+    $url = ([string] (az storage account show --name $account --resource-group $ResourceGroup --query primaryEndpoints.web --only-show-errors --output tsv)).Trim()
+    if (-not $url) { Stop-Step "Azure returned no website address for $account in $ResourceGroup." }
+    return $url.TrimEnd('/')
 }
