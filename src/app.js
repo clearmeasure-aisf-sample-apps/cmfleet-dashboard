@@ -175,7 +175,8 @@ function drawTile(system, facts, now) {
   if (behindReasons(system).length) tile.append(el('ul', { class: 'behind' }, behindReasons(system).map((reason) => el('li', { text: reason }))));
   if (standing(system).length) tile.append(el('p', { class: 'standing', text: `Standards: ${standingSummary(system)}` }));
   // A system that is switched off on purpose is not asked: no answer would be the truth, and it would read as a failure.
-  if (system.health && state === 'asleep') tile.append(el('p', { class: 'health', text: 'health: not asked while asleep' }));
+  if (system.asleep && state !== 'asleep') tile.append(el('p', { class: 'sub asleep-note', text: 'Asleep: switched off on purpose.' }));
+  if (system.health && system.asleep) tile.append(el('p', { class: 'health', text: 'health: not asked while asleep' }));
   else if (system.health) tile.append(el('p', { class: 'health', 'data-health': system.health, text: 'health: not probed yet' }));
   tile.append(drawMore(system));
   return tile;
@@ -214,13 +215,17 @@ function drawFoot(data, config) {
 }
 
 // Each system may name a public health address. The probe runs in the reader's browser, so it says what is true now.
+// An address that does not answer within this time is not responding: a request that hangs is not left open.
+const PROBE_SECONDS = 10;
+
 async function probe(url) {
+  const within = () => AbortSignal.timeout(PROBE_SECONDS * 1000);
   try {
-    const response = await fetch(url, { cache: 'no-store' });
+    const response = await fetch(url, { cache: 'no-store', signal: within() });
     return { ok: response.ok, status: response.status };
   } catch {
     try {
-      await fetch(url, { cache: 'no-store', mode: 'no-cors' });
+      await fetch(url, { cache: 'no-store', mode: 'no-cors', signal: within() });
       return { opaque: true };
     } catch {
       return { error: true };

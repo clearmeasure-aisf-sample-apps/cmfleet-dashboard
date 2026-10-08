@@ -332,14 +332,21 @@ test('an address that names a system opens it, and reduced motion opens without 
   }
 });
 
-test('a system that is asleep is not asked for its health', async () => {
+test('a system that is asleep is not asked for its health, and says it is asleep also when it is behind', async () => {
   const data = await dataWith((fleet) => {
     Object.assign(fleet.systems[0], { state: 'ok', asleep: true, behind: [], health: '/data/absent' });
+    Object.assign(fleet.systems[1], { state: 'behind', asleep: true, behind: ['Kit templates: 2 file(s) behind the kit'], health: '/data/absent' });
     return fleet;
   });
   const fleet = JSON.parse(await readFile(join(data, 'fleet.json'), 'utf8'));
   await withPage(data, SOON_AFTER, async (page, complaints) => {
-    assert.equal(await tile(page, fleet.systems[0].slug).locator('.health').textContent(), 'health: not asked while asleep');
+    const [quiet, yellow] = [tile(page, fleet.systems[0].slug), tile(page, fleet.systems[1].slug)];
+    assert.equal(await quiet.locator('.pill').textContent(), 'Asleep');
+    assert.equal(await quiet.locator('.health').textContent(), 'health: not asked while asleep');
+    assert.equal(await quiet.locator('.asleep-note').count(), 0);
+    assert.equal(await yellow.locator('.pill').textContent(), 'Behind the standard');
+    assert.equal(await yellow.locator('.asleep-note').textContent(), 'Asleep: switched off on purpose.');
+    assert.equal(await yellow.locator('.health').textContent(), 'health: not asked while asleep');
     assert.deepEqual(complaints, []);
   });
 });
