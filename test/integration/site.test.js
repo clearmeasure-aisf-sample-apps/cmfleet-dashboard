@@ -200,7 +200,7 @@ test('a system that names a health address is probed from the page', async () =>
   });
 });
 
-test('the name of a system opens its runtime view, its dashboard when it names none, and nothing when it has neither', async () => {
+test('the name of a system zooms into its runtime view, its dashboard when it names none, and opens its Octopus space when it has neither', async () => {
   const data = await dataWith((fleet) => {
     Object.assign(fleet.systems[0], { dashboard: 'https://one.example/', runtimeView: 'https://one.example/#runtime/prod' });
     Object.assign(fleet.systems[1], { dashboard: 'https://two.example/', runtimeView: '' });
@@ -213,7 +213,10 @@ test('the name of a system opens its runtime view, its dashboard when it names n
     assert.equal(await first.locator('h3 a').getAttribute('href'), 'https://one.example/#runtime/prod');
     assert.deepEqual(await first.locator('.links a').evaluateAll((all) => all.slice(0, 2).map((a) => a.textContent)), ['Runtime view', 'Its dashboard']);
     assert.equal(await second.locator('h3 a').getAttribute('href'), 'https://two.example/');
-    assert.equal(await third.locator('h3 a').count(), 0);
+    assert.equal(await third.locator('h3 a').getAttribute('href'), fleet.systems[2].space.url);
+    assert.equal(await third.locator('h3 a').getAttribute('target'), '_blank');
+    assert.equal(await third.locator('h3 a').getAttribute('data-zoom'), null);
+    assert.equal(await page.locator(`#landscape g.entity[data-box="${fleet.systems[2].slug}"]`).getAttribute('data-open'), fleet.systems[2].space.url);
   });
 });
 
@@ -347,6 +350,121 @@ test('a system that is asleep is not asked for its health, and says it is asleep
     assert.equal(await yellow.locator('.pill').textContent(), 'Behind the standard');
     assert.equal(await yellow.locator('.asleep-note').textContent(), 'Asleep: switched off on purpose.');
     assert.equal(await yellow.locator('.health').textContent(), 'health: not asked while asleep');
+    assert.deepEqual(complaints, []);
+  });
+});
+
+test('a system is drawn as a project group: each project, and a tile, the release and when for each environment', async () => {
+  const data = await dataWith((fleet) => {
+    fleet.systems[0].environments = [{ name: 'tdd', tier: 'nonprod' }, { name: 'uat', tier: 'nonprod' }, { name: 'prod', tier: 'prod' }];
+    fleet.systems[0].projects = [
+      { name: 'web', environments: [
+        { name: 'tdd', release: '2.4.43', state: 'Success', finished: '2026-10-07 04:28', url: 'https://octopus.example/web/tdd' },
+        { name: 'uat', release: '2.4.42', state: 'Success', finished: '2026-10-06 21:02', url: '' },
+        { name: 'prod', release: '2.4.42', state: 'Failed', finished: '2026-10-06 21:40', url: '' },
+      ] },
+      { name: 'api', environments: [{ name: 'tdd', release: '1.0.7', state: 'Success', finished: '2026-10-07 01:00', url: '' }] },
+      { name: 'never', environments: [{ name: 'tdd', release: '', state: 'not deployed', finished: '', url: '' }] },
+    ];
+    return fleet;
+  });
+  const fleet = JSON.parse(await readFile(join(data, 'fleet.json'), 'utf8'));
+  const server = await serve({ site, data });
+  const page = await browser.newPage({ viewport: { width: 1600, height: 1000 }, timezoneId: 'America/Chicago' });
+  await page.route(/^https:\/\/fonts\./, (route) => route.fulfill({ status: 200, contentType: 'text/css', body: '' }));
+  try {
+    await page.clock.setFixedTime(new Date(SOON_AFTER));
+    await page.goto(server.url);
+    await page.waitForSelector('body[data-ready="true"]');
+    const one = tile(page, fleet.systems[0].slug);
+    assert.equal(await one.locator('header .count').textContent(), '2');
+    assert.deepEqual(await one.locator('table.releases th').allTextContents(), ['Project', 'tdd', 'uat', 'prod']);
+    assert.deepEqual(await one.locator('table.releases td.project').allTextContents(), ['web', 'api']);
+    const cells = await one.locator('table.releases td.rel').evaluateAll((all) => all.map((cell) => [
+      cell.className, cell.querySelector('.status').getAttribute('aria-label'), cell.querySelector('.num').textContent, cell.querySelector('.when')?.textContent || '',
+    ]));
+    assert.deepEqual(cells, [
+      ['rel same', 'deployed', '2.4.43', 'Oct 6, 2026 11:28 PM'],
+      ['rel behind', 'deployed, behind tdd', '2.4.42', 'Oct 6, 2026 4:02 PM'],
+      ['rel failed', 'failed', '2.4.42 failed', 'Oct 6, 2026 4:40 PM'],
+      ['rel same', 'deployed', '1.0.7', 'Oct 6, 2026 8:00 PM'],
+      ['rel none', 'not deployed', 'none', ''],
+      ['rel none', 'not deployed', 'none', ''],
+    ]);
+    assert.equal(await one.locator('td.rel.same a.num').first().getAttribute('href'), 'https://octopus.example/web/tdd');
+    assert.equal(await one.locator('table.releases').isVisible(), true);
+    // The tiles are Octopus's: green for what succeeded, red for what failed, none where nothing is.
+    const paint = (kind) => one.locator(`td.rel.${kind} .status`).first().evaluate((status) => document.defaultView.getComputedStyle(status).backgroundColor);
+    assert.equal(await paint('same'), 'rgb(0, 171, 98)');
+    assert.equal(await paint('failed'), 'rgb(214, 61, 61)');
+    assert.equal(await paint('none'), 'rgba(0, 0, 0, 0)');
+  } finally {
+    await page.close();
+    await server.close();
+  }
+});
+
+test('the bar carries the logo and the fleet\'s name, finds systems by what is typed, and the doors lead out', async () => {
+  const data = await dataWith();
+  const fleet = JSON.parse(await readFile(join(data, 'fleet.json'), 'utf8'));
+  await withPage(data, SOON_AFTER, async (page, complaints) => {
+    assert.ok(await page.locator('.topbar .brand img').evaluate((logo) => logo.complete && logo.naturalWidth > 0), 'the logo is loaded');
+    assert.equal(await page.locator('.topbar .brand img').getAttribute('alt'), 'Clear Measure');
+    assert.equal(await page.locator('.topbar #fleet-name').textContent(), fleet.fleet.name);
+    assert.equal(await page.locator('#shown').textContent(), `${fleet.systems.length} of ${fleet.systems.length} systems`);
+    assert.equal(await page.locator('#open-octopus').getAttribute('href'), fleet.fleet.octopus);
+    assert.equal(await page.locator('#open-kit').getAttribute('href'), `https://github.com/${fleet.fleet.repository}`);
+    assert.equal(await page.locator('#nav-data').getAttribute('href'), '/data/fleet.json');
+
+    const wanted = fleet.systems[1];
+    await page.locator('#find').fill(wanted.slug.toUpperCase());
+    assert.deepEqual(await page.locator('article.tile:visible').evaluateAll((all) => all.map((one) => one.dataset.system)), [wanted.slug]);
+    assert.equal(await page.locator('#shown').textContent(), `1 of ${fleet.systems.length} systems`);
+    assert.equal(await page.locator('#no-match').isHidden(), true);
+    await page.locator('#find').fill('no system is called this');
+    assert.equal(await page.locator('article.tile:visible').count(), 0);
+    assert.equal(await page.locator('#no-match').isVisible(), true);
+    await page.locator('#find').fill('');
+    assert.equal(await page.locator('article.tile:visible').count(), fleet.systems.length);
+
+    // A section beside the page scrolls to its part and leaves the address alone: after "#" it names a system.
+    await page.locator('.side a[data-go="shared"]').click();
+    await page.waitForFunction(() => document.getElementById('shared').getBoundingClientRect().top < document.documentElement.clientHeight);
+    assert.equal(await page.evaluate(() => document.location.hash), '');
+    assert.equal(await page.locator('.side a.on').textContent(), 'Shared services');
+    assert.deepEqual(complaints, []);
+  });
+});
+
+test('no box of the landscape does nothing: a system zooms in, every other box opens what it stands for', async () => {
+  const data = await dataWith();
+  const fleet = JSON.parse(await readFile(join(data, 'fleet.json'), 'utf8'));
+  await withPage(data, SOON_AFTER, async (page, complaints) => {
+    const boxes = await page.locator('#landscape g.entity, #landscape g.cluster').evaluateAll((all) => all.map((box) => [
+      box.getAttribute('data-qualified-name').split('.').pop(), box.dataset.zoom ? 'zooms' : box.dataset.open || '',
+    ]));
+    const kit = `https://github.com/${fleet.fleet.repository}`;
+    const leads = Object.fromEntries(boxes);
+    assert.deepEqual(boxes.filter(([, where]) => !where), [], 'a box that leads nowhere');
+    for (const system of fleet.systems) assert.equal(leads[system.slug], system.runtimeView || system.dashboard ? 'zooms' : system.space.url, system.slug);
+    assert.equal(leads.octopus, fleet.fleet.octopus);
+    assert.equal(leads.kit, `${kit}/tree/green`);
+    assert.equal(leads.policies, `https://github.com/${fleet.fleet.policies}`);
+    assert.equal(leads.fleet, `${kit}/tree/main/fleet`);
+    assert.match(leads.operators, /\/issues\?q=.*label%3Afleet-finding$/);
+    assert.match(leads.subscription, /^https:\/\/portal\.azure\.com\//);
+    assert.match(await page.locator('#landscape g.entity[data-box="octopus"] > title').textContent(), /^Octopus Deploy: As declared\. Opens .+ in a new tab$/);
+
+    // The tests reach nothing outside this machine: what the page would open is written down instead.
+    await page.evaluate(() => { const view = document.defaultView; view.opened = []; view.open = (...asked) => { view.opened.push(asked); return null; }; });
+    await page.locator('#landscape g.entity[data-box="octopus"] rect').first().click();
+    await page.locator('#landscape g.cluster[data-box="subscription"]').focus();
+    await page.keyboard.press('Enter');
+    assert.deepEqual(await page.evaluate(() => document.defaultView.opened), [
+      [fleet.fleet.octopus, '_blank', 'noopener'], [leads.subscription, '_blank', 'noopener'],
+    ]);
+    assert.equal(await page.evaluate(() => document.body.dataset.zoomed || ''), '', 'a box that opens does not zoom');
+    assert.deepEqual(await page.locator('#services .service b a').evaluateAll((all) => all.map((link) => link.getAttribute('href'))), [leads.octopus, leads.kit, leads.policies]);
     assert.deepEqual(complaints, []);
   });
 });

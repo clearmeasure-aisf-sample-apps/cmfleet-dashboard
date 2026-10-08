@@ -39,6 +39,16 @@ export function formatAge(hours) {
   return `${Math.round(hours / 24)} d`;
 }
 
+// When a deployment finished, as Octopus writes it beside a release: "Oct 8, 2026 8:18 AM", in the reader's own time
+// zone (a zone is named only to say which one, as a test does). Nothing for a time that was not read.
+export function formatWhen(text, timeZone) {
+  const time = parseUtc(text);
+  if (!time) return '';
+  const parts = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone }).formatToParts(time);
+  const part = (type) => parts.find((one) => one.type === type)?.value || '';
+  return `${part('month')} ${part('day')}, ${part('year')} ${part('hour')}:${part('minute')} ${part('dayPeriod')}`;
+}
+
 export function isStale(generated, now) {
   const hours = ageHours(generated, now);
   return hours === null || hours > STALE_AFTER_HOURS;
@@ -162,6 +172,21 @@ export function releaseGrid(system) {
   return { names, rows };
 }
 
+// A cell of the release grid in words, for a reader who does not see its tile: deployed, deployed and behind the
+// first environment, failed, or nothing there.
+export function releaseWord(cell, first) {
+  if (cell.kind === 'none') return 'not deployed';
+  if (cell.kind === 'failed') return 'failed';
+  return cell.kind === 'behind' ? `deployed, behind ${first}` : 'deployed';
+}
+
+// What a reader may type to find a system: its name, what it is, its owner and its projects.
+export function findText(system) {
+  return [system.slug, system.name, system.owner, ...system.projects.map((project) => project.name)].filter(Boolean).join(' ').toLowerCase();
+}
+
+export const matches = (system, typed) => findText(system).includes((typed || '').trim().toLowerCase());
+
 export function fleetFacts(data, now) {
   const stale = isStale(data.generated, now);
   const states = data.systems.map((system) => displayState(system, stale));
@@ -191,6 +216,37 @@ export function serviceState(service, stale) {
 // it names no runtime view. Nothing when it has neither.
 export function systemLink(system) {
   return system.runtimeView || system.dashboard || '';
+}
+
+// Where a box of the landscape leads that is not a system: the thing it stands for, in the tool that holds it. The
+// operators' box leads to what they act on, the findings. The subscription leads to the Azure portal: to the
+// subscription itself when the fleet's data names its address there, otherwise to the reader's resource groups.
+// None of these pages lets itself be shown inside another page, so they open beside this one.
+export const AZURE_PORTAL = 'https://portal.azure.com/#view/HubsExtension/BrowseResourceGroups';
+
+export function boxLinks(data) {
+  const fleet = data.fleet || {};
+  const kit = fleet.repository ? `https://github.com/${fleet.repository}` : '';
+  const links = {
+    operators: kit ? `${kit}/issues?q=is%3Aissue+state%3Aopen+label%3Afleet-finding` : '',
+    fleet: kit ? `${kit}/tree/main/fleet` : '',
+    octopus: fleet.octopus || '',
+    kit: kit ? `${kit}/tree/green` : '',
+    policies: fleet.policies ? `https://github.com/${fleet.policies}` : '',
+    subscription: fleet.azurePortal || AZURE_PORTAL,
+  };
+  return Object.fromEntries(Object.entries(links).filter(([, url]) => url));
+}
+
+// The place a link leads to, in a word a reader knows: "github.com".
+export function hostOf(url) {
+  try { return new URL(url).host; } catch { return ''; }
+}
+
+// A system with nothing to zoom into still leads somewhere: its space in Octopus, where what it runs is shown, or its
+// repository when the fleet read no space.
+export function systemDoor(system) {
+  return system.space?.url || system.repositoryUrl || '';
 }
 
 // A title the fleet wrote starts with the system's name; on the system's own tile that is said already.

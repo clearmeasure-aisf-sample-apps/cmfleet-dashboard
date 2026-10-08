@@ -27,7 +27,7 @@ test('the page is served and loads its script and its styles', async () => {
 });
 
 test('the script, the model and the styles are served as what they are', async () => {
-  for (const [path, type] of [['/app.js', /javascript/], ['/model.js', /javascript/], ['/styles.css', /text\/css/], ['/favicon.svg', /image\/svg/]]) {
+  for (const [path, type] of [['/app.js', /javascript/], ['/model.js', /javascript/], ['/styles.css', /text\/css/], ['/favicon.png', /image\/png/], ['/clear-measure-logo-white.png', /image\/png/]]) {
     const { response } = await get(path);
     assert.equal(response.status, 200, path);
     assert.match(response.headers.get('content-type'), type, path);

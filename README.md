@@ -11,23 +11,59 @@ The fleet is declared and overseen in
 those two files in the reader's browser and draws them. Nothing is pushed into this repository, and the page has no
 server of its own.
 
+## How it looks, and why
+
+The page wears two brands (Jeffrey Palermo, 2026-10-08: "restyled so that it matches Clear Measure and Octopus
+branding ... mimic the styling of the octopus screen ... use Clear Measure brand guide and Clear Measure logo").
+
+| Part | From | In the page |
+|---|---|---|
+| Navy surfaces, one line colour, cards with a thin border, the bar across the top with the sections beside the page | Octopus Deploy's dark screens | `--bg`, `--bar`, `--side`, `--line` in `src/styles.css` |
+| A system drawn as a project group: its name, how many projects, then each project with a tile, the release and when for every environment | Octopus's Projects screen | `drawReleases` in `src/app.js` |
+| The green tile with a tick for a deployment that succeeded, red with a cross for one that failed, the green primary button, blue for links | Octopus | `--ok`, `--crit-fill`, `--link` |
+| The logo, in the bar where Octopus has its own, and its mark as the page's icon | Clear Measure | `src/clear-measure-logo-white.png`, `src/favicon.png` |
+| The blue of the landscape's boxes, the light blue of bars and of a deployment in flight, and the gold of "behind the standard" | Clear Measure's palette: `#004B87`, `#003B6A`, `#CFEAFF`, `#E5AC1A`, and the logo's `#24ABE1` | `--cm-blue`, `--cm-dark-blue`, `--cm-light-blue`, `--cm-gold`, `--cm-sky` |
+| Roboto, with Segoe UI and Helvetica Neue behind it | Octopus's type; the fallbacks are Clear Measure's | `--body` |
+
+The palette is the one Clear Measure's own web applications carry in their stylesheets, and the logo files are the
+ones they ship. The brand guide itself was not at hand when this was made: where it says otherwise, the variables at
+the top of `src/styles.css` are the one place to change.
+
+There is one theme, the dark one of the screen it mimics.
+
 ## What the page says
 
 | On the page | Means |
 |---|---|
-| Gray | As declared. The normal state has no colour |
-| Amber, "Needs attention" | Something that worked has stopped: a failed deployment or check, an environment left behind, a stale proof |
-| Yellow, "Behind the standard" | Nothing has stopped, and the system does not keep every standard yet: a gap it never closed, or a change of the standard it has not taken yet. Why is on the tile's face |
+| A green tile with a tick | That project's last deployment to that environment succeeded. The release is beside it, and when it finished, in the reader's own time zone |
+| A red tile with a cross | It failed, timed out or was cancelled |
+| A release in orange beside a green tile | The deployment succeeded, and the environment runs an older release than the first one |
+| An empty dashed tile | Nothing is deployed there |
+| No colour on a system's card, "As declared" | The normal state of a system has no colour |
+| Orange, "Needs attention" | Something that worked has stopped: a failed deployment or check, an environment left behind, a stale proof |
+| Gold, "Behind the standard" | Nothing has stopped, and the system does not keep every standard yet: a gap it never closed, or a change of the standard it has not taken yet. Why is on the card's face |
 | Red, "Production affected" | The last deployment to production failed, or a service every system depends on is out |
 | Dashed, "Not read" | The fleet could not read the system, or its data is older than two of its six-hourly readings |
 | Dotted, "Asleep" | Switched off on purpose |
-| A blue dot | A deployment in flight, read every minute from the file each system publishes itself (`deployments.json`): pulsing while it runs, hollow while it is queued, ringed while it waits for a sign-off, small for what ended in the last ten minutes. The tile says which release and environment |
+| A blue dot | A deployment in flight, read every minute from the file each system publishes itself (`deployments.json`): pulsing while it runs, hollow while it is queued, ringed while it waits for a sign-off, small for what ended in the last ten minutes. The card says which release and environment |
 | "Standards: 9 met · 1 gap …" | Where the system stands on every standard of the fleet. The whole list, with the fleet's words for each, opens on demand: met, behind, gap, broken, not compared (with the declared reason), intended variance, observed, nothing to judge, not checked |
+
+The box in the bar finds systems by what is typed: a system's name, what it is, its owner or one of its projects.
+The sections beside the page scroll to their part of it; on a narrow screen they are left out.
+
+No box of the landscape does nothing (Jeffrey Palermo, 2026-10-08: "whatever the box represents I want to be able to
+click and zoom into the view of that resource"). Octopus Deploy opens the instance, the delivery standard and the
+policies open their repositories on GitHub, the fleet's box opens the registry, the operators' box the open findings,
+and the frame of the subscription the Azure portal. These open in a new tab: Octopus, GitHub and Azure do not let
+themselves be shown inside another page. The portal opens at the reader's resource groups, because the fleet's public
+data does not name the subscription; `fleet.azurePortal` in `fleet.json` would lead to the subscription itself. A
+system that names neither a runtime view nor a dashboard opens its space in Octopus.
 
 A click on a system's box in the landscape, or on its name on its tile, zooms into that system's runtime view (its own
 dashboard where it names none): the dashboard loads in a frame over the box and grows to the whole screen, inside this
-page. "Fleet", Escape and the browser's Back zoom out; the address carries the system's name after `#`. Each tile shows what runs in production and for how long, and what is broken. The rest (every release in every
-environment, gaps, what is only observed, intended variances, cost, links) opens on demand. A system that names a
+page. "Fleet", Escape and the browser's Back zoom out; the address carries the system's name after `#`. Each card
+shows what every project runs in every environment, and what is broken. The rest (every standard, gaps, what is only
+observed, intended variances, cost, links) opens on demand. A system that names a
 public health address in the fleet's registry is asked from the reader's browser, so that line is true now and not
 as of the last reading.
 
