@@ -82,9 +82,18 @@ Write-Host "PASS $Version is in ${account}: $($files.Count) files written$(if ($
 # Until 2026-10-08 an environment was a Static Web App on the Free plan. What is left of it is removed, so that the
 # environment is what this release says and nothing more, and the subscription has its Free site back.
 $former = "swa-cmfleet-$environmentName-dashboard"
-$found = ([string] (az staticwebapp list --resource-group $ResourceGroup --query "[?name=='$former'].name | [0]" --only-show-errors --output tsv)).Trim()
-if ($found) {
+function Test-FormerSite {
+    return [bool] ([string] (az staticwebapp list --resource-group $ResourceGroup --query "[?name=='$former'].name | [0]" --only-show-errors --output tsv)).Trim()
+}
+if (Test-FormerSite) {
     Write-Host "==> the former site $former"
-    az staticwebapp delete --name $former --resource-group $ResourceGroup --yes --only-show-errors --output none
+    # Not waited for by the CLI: it follows the removal at an address of the subscription, which an identity that
+    # holds its role on one resource group may not read. The resource group's own list says when the site is gone.
+    az staticwebapp delete --name $former --resource-group $ResourceGroup --yes --no-wait --only-show-errors --output none
+    $deadline = (Get-Date).AddMinutes(10)
+    while (Test-FormerSite) {
+        if ((Get-Date) -gt $deadline) { Stop-Step "$former is still in $ResourceGroup ten minutes after its removal was asked for." }
+        Start-Sleep -Seconds 15
+    }
     Write-Host "PASS $former removed"
 }
