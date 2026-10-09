@@ -78,7 +78,7 @@ function drawBox(box, kind) {
   ]);
 }
 
-const drawRel = (text, direction) => el('span', { class: `rel ${direction}` }, [el('span', { class: 'arrow', 'aria-hidden': 'true', text: direction === 'down' ? '▼' : '▶' }), text]);
+const drawRel = (text, direction) => el('span', { class: `scape-rel ${direction}` }, [el('span', { class: 'arrow', 'aria-hidden': 'true', text: direction === 'down' ? '▼' : '▶' }), text]);
 
 // The landscape is drawn here, from the fleet's data: boxes that wrap to the width of the page, in the page's own
 // colours and type. The fleet's C4 drawing of the same thing stays where the fleet publishes it.

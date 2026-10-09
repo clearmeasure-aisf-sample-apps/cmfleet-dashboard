@@ -167,9 +167,9 @@ table.standards tr[data-status="met"] td.stands { color: var(--ok); font-weight:
 .scape-row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px 14px; }
 .scape-row > .entity { flex: 1 1 220px; max-width: 420px; }
 .scape-rels { display: flex; flex-wrap: wrap; gap: 4px 36px; padding-inline: 18px; }
-.rel { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: .86rem; }
-.rel.right { align-self: center; }
-.rel .arrow { color: var(--cm-primary); font-size: .8rem; line-height: 1; }
+.scape-rel { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: .86rem; }
+.scape-rel.right { align-self: center; }
+.scape-rel .arrow { color: var(--cm-primary); font-size: .8rem; line-height: 1; }
 .entity { position: relative; display: grid; gap: 4px; align-content: start; justify-items: center; text-align: center; min-width: 0; padding: 12px 14px 14px; border: 2px solid var(--cm-primary); border-radius: var(--radius); background: var(--box); color: var(--box-ink); }
 a.entity:hover { text-decoration: none; filter: brightness(1.25); }
 a.entity:focus-visible, a.cluster-name:focus-visible { outline: 3px solid var(--cm-light-blue); outline-offset: 2px; }
