@@ -44,6 +44,10 @@ test('the build facts are of this release, and are not kept by a cache', async (
   assert.ok(facts.code.linesOfCode > 0);
   assert.ok(facts.tests.unit > 0);
   assert.equal(facts.analysis.problems, 0);
+  // What is deployed was built by the private build's command, run by the integration build.
+  assert.equal(facts.build.command, 'pwsh -NoProfile -File build.ps1');
+  assert.equal(facts.build.ranBy, 'integration');
+  assert.match(facts.build.run, /^https:\/\/github\.com\/.+\/actions\/runs\/\d+$/);
 });
 
 test('an address that is not there answers 404 with the page that says so', async () => {

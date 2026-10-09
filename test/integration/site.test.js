@@ -411,6 +411,12 @@ test('the bar carries the logo and the fleet\'s name, finds systems by what is t
     assert.ok(await page.locator('.topbar .brand img').evaluate((logo) => logo.complete && logo.naturalWidth > 0), 'the logo is loaded');
     assert.equal(await page.locator('.topbar .brand img').getAttribute('alt'), 'Clear Measure');
     assert.equal(await page.locator('.topbar #fleet-name').textContent(), fleet.fleet.name);
+    // Clear Measure's own: the face of the headings, the yellow of "behind the standard", the blue of what is selected.
+    const style = (selector, property) => page.locator(selector).first().evaluate((one, name) => document.defaultView.getComputedStyle(one).getPropertyValue(name), property);
+    assert.match(await style('main h1', 'font-family'), /^Jost, Futura/);
+    assert.match(await style('.topbar #fleet-name', 'font-family'), /^Jost, Futura/);
+    assert.equal(await style('.pill.behind', 'border-top-color'), 'rgb(238, 203, 26)');
+    assert.match(await style('.side a.on', 'box-shadow'), /rgb\(0, 133, 202\)/);
     assert.equal(await page.locator('#shown').textContent(), `${fleet.systems.length} of ${fleet.systems.length} systems`);
     assert.equal(await page.locator('#open-octopus').getAttribute('href'), fleet.fleet.octopus);
     assert.equal(await page.locator('#open-kit').getAttribute('href'), `https://github.com/${fleet.fleet.repository}`);
