@@ -609,3 +609,221 @@ test('the page fits a phone: nothing scrolls sideways', async () => {
     await server.close();
   }
 });
+
+// The fleet's own reading of Octopus (the kit writes it into fleet.json as "activity"): one system with a sign-off
+// waiting and a deployment running, one that publishes its own file (which says nothing is in flight) with a freeze
+// ahead, one with a freeze in force and nothing else, one where the fleet read that nothing happens, and the rest
+// as the data was before the fleet read any of this.
+function withActivity(fleet) {
+  const three = [{ name: 'tdd', tier: 'nonprod' }, { name: 'uat', tier: 'nonprod' }, { name: 'prod', tier: 'prod' }];
+  const [one, two, frozen, quiet] = fleet.systems;
+  const flying = (system, state, environment, extra = {}) => ({
+    project: `${system.slug}-web`, release: '2.4.76', environment, state, since: '2026-10-07T04:40:00Z', startedBy: 'a-service-account', url: 'https://octopus.example/app#/Spaces-1/tasks/ServerTasks-1', ...extra,
+  });
+  Object.assign(one, {
+    state: 'ok', behind: [], findings: [], asleep: false, environments: three,
+    projects: [{ name: `${one.slug}-web`, environments: [
+      { name: 'tdd', release: '2.4.76', state: 'Success', finished: '2026-10-07 04:30', url: '' },
+      { name: 'uat', release: '2.4.76', state: 'Executing', finished: '', inProgress: true, started: '2026-10-07 04:40', url: '' },
+      { name: 'prod', release: '2.4.75', state: 'Queued', finished: '', inProgress: true, started: '2026-10-07 04:38', url: '' },
+    ] }],
+    activity: { read: READ_AT, missing: [], freezes: [], recent: [{ project: `${one.slug}-web`, release: '2.4.76', environment: 'tdd', result: 'succeeded', finished: '2026-10-07T04:30:00Z', startedBy: 'a-service-account', url: '' }],
+      inFlight: [
+        flying(one, 'waiting', 'prod', { release: '2.4.75', since: '2026-10-07T04:38:00Z', waitsFor: { kind: 'sign-off', title: 'Sign-off', since: '2026-10-07T04:58:00Z', responsible: 'approvers of the test' } }),
+        flying(one, 'executing', 'uat'),
+      ] },
+  });
+  Object.assign(two, {
+    state: 'ok', behind: [], findings: [], asleep: false, deployments: '/data/flights-quiet.json',
+    activity: { read: READ_AT, missing: [], inFlight: [flying(two, 'executing', 'uat')],
+      recent: [{ project: `${two.slug}-web`, release: '2.4.75', environment: 'prod', result: 'succeeded', finished: '2026-10-07T04:50:00Z', startedBy: 'pat', url: '' }],
+      freezes: [{ name: 'weekend freeze', from: '2026-10-10T00:00:00Z', to: '2026-10-12T00:00:00Z', active: false, environments: ['prod'], projects: [`${two.slug}-web`] }] },
+  });
+  Object.assign(frozen, {
+    state: 'ok', behind: [], findings: [], asleep: false,
+    activity: { read: READ_AT, missing: [], inFlight: [], recent: [], freezes: [{ name: 'audit week', from: '2026-10-06T00:00:00Z', to: '2026-10-12T00:00:00Z', active: true, environments: ['prod'], projects: [] }] },
+  });
+  Object.assign(quiet, { state: 'ok', behind: [], findings: [], asleep: false, activity: { read: READ_AT, missing: ['freezes'], inFlight: [], recent: [], freezes: [] } });
+  fleet.shared.services.find((service) => service.id === 'octopus').activity = { executing: 2, queued: 0, waiting: 1, cap: 20 };
+  return fleet;
+}
+
+async function activityData() {
+  const data = await dataWith(withActivity);
+  await writeFile(join(data, 'flights-quiet.json'), JSON.stringify({ generated: READ_AT, deployments: [] }));
+  return { data, fleet: JSON.parse(await readFile(join(data, 'fleet.json'), 'utf8')) };
+}
+
+const boxOf = (page, slug) => page.locator(`#landscape .entity[data-box="${slug}"]`);
+const actsOf = (page, slug) => boxOf(page, slug).locator('.acts .act').evaluateAll((all) => all.map((one) => [one.className, one.textContent, one.dataset.source]));
+// How a tile is painted: its fill, its edge (the colour only where it has one) and whether it moves.
+const paintOf = (locator) => locator.evaluate((one) => {
+  const style = document.defaultView.getComputedStyle(one);
+  return [style.backgroundColor, style.borderTopStyle === 'none' ? '' : style.borderTopColor, style.borderTopStyle, style.animationName];
+});
+const FLIGHT = 'rgb(36, 171, 225)';
+
+test('a system\'s box says what is happening there: who waits for a person, what is deploying, a freeze, and otherwise the last thing', async () => {
+  const { data, fleet } = await activityData();
+  const [one, two, frozen, quiet, plain] = fleet.systems;
+  await withPage(data, SOON_AFTER, async (page, complaints) => {
+    await page.waitForSelector('body[data-flights="read"]');
+    // The fleet's own reading, 22 minutes old, for a system that publishes no file: the person first, then what runs.
+    assert.deepEqual(await actsOf(page, one.slug), [
+      ['act act-waiting', 'prod waits for a sign-off, 12 min', 'fleet'], ['act act-deploying', 'deploying web 2.4.76 to uat', 'fleet'],
+    ]);
+    assert.equal(await boxOf(page, one.slug).locator('.act-waiting').getAttribute('title'),
+      `${one.slug}-web 2.4.75 waits for a sign-off in prod; responsible: approvers of the test; started by a-service-account (the fleet's reading of Octopus)`);
+    // The system's own file wins: it says nothing is in flight, so the fleet's "executing" is not said. The freeze
+    // and the last deployment are what the fleet read.
+    assert.deepEqual(await actsOf(page, two.slug), [
+      ['act act-freeze', 'prod freezes Sat 00:00 UTC', 'fleet'], ['act act-last', `last: web 2.4.75 to prod, 20 min ago`, 'fleet'],
+    ]);
+    assert.equal(await boxOf(page, two.slug).locator('.flight').count(), 0);
+    assert.deepEqual(await actsOf(page, frozen.slug), [['act act-freeze', 'prod frozen until Mon 00:00 UTC', 'fleet']]);
+    // Nothing read, and data without the fields: nothing is said, and nothing takes room.
+    for (const slug of [quiet.slug, plain.slug]) {
+      assert.equal(await boxOf(page, slug).locator('.acts').isHidden(), true, slug);
+      assert.equal(await boxOf(page, slug).locator('.act').count(), 0, slug);
+    }
+    // The tiles: flight's colour in place of the tick where something is deploying or waiting, and the others as they were.
+    const tiles = await boxOf(page, one.slug).locator('.env').evaluateAll((all) => all.map((tile) => [tile.dataset.env, tile.className, tile.dataset.flight || '', tile.title, tile.querySelector('i').getAttribute('aria-label')]));
+    assert.deepEqual(tiles, [
+      ['tdd', 'env same', '', 'tdd: deployed', 'tdd: deployed'],
+      ['uat', 'env progress', 'executing', 'uat: deploying now', 'uat: deploying now'],
+      ['prod', 'env progress', 'waiting', 'prod: waits for a person', 'prod: waits for a person'],
+    ]);
+    const tilePaint = (name) => paintOf(boxOf(page, one.slug).locator(`.env[data-env="${name}"] i`));
+    assert.deepEqual(await tilePaint('tdd'), ['rgb(0, 171, 98)', '', 'none', 'none']);
+    assert.deepEqual(await tilePaint('uat'), [FLIGHT, '', 'none', 'pulse']);
+    assert.deepEqual(await tilePaint('prod'), ['rgba(0, 0, 0, 0)', FLIGHT, 'double', 'none']);
+    assert.deepEqual(await boxOf(page, two.slug).locator('.env[data-flight]').count(), 0);
+    assert.equal(await boxOf(page, one.slug).locator('.flight.waiting').count(), 1);
+    assert.equal(await boxOf(page, one.slug).locator('.runs').textContent(), 'prod 2.4.75 · in progress when read');
+    // Where things are: the lines are inside the box, one under the other, under what production runs and above the
+    // numbers; the three tiles are still one row inside the box.
+    const where = await boxOf(page, one.slug).evaluate((box) => {
+      const rect = (one) => { const r = one.getBoundingClientRect(); return { left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), bottom: Math.round(r.bottom) }; };
+      return { box: rect(box), runs: rect(box.querySelector('.runs')), acts: [...box.querySelectorAll('.act')].map(rect), small: rect(box.querySelector('.small')), tiles: [...box.querySelectorAll('.env')].map(rect), wider: box.scrollWidth - box.clientWidth };
+    });
+    assert.equal(where.acts.length, 2);
+    for (const act of where.acts) assert.ok(act.left >= where.box.left && act.right <= where.box.right && act.bottom <= where.box.bottom, `a line is inside its box: ${JSON.stringify([act, where.box])}`);
+    assert.ok(where.acts[0].top >= where.runs.bottom && where.acts[1].top >= where.acts[0].bottom && where.small.top >= where.acts[1].bottom, JSON.stringify(where));
+    assert.equal(new Set(where.tiles.map((tile) => tile.top)).size, 1, 'the tiles are one row');
+    assert.ok(where.tiles.every((tile) => tile.left >= where.box.left && tile.right <= where.box.right) && where.tiles[0].right <= where.tiles[1].left && where.tiles[1].right <= where.tiles[2].left, JSON.stringify(where.tiles));
+    assert.equal(where.wider, 0);
+    // The card: the same deployments are listed, the grid's tiles carry them, and a release that was being deployed
+    // when it was read says so where its time would be. The columns still stand above their tiles.
+    const card = tile(page, one.slug);
+    assert.deepEqual(await card.locator('.flights li').evaluateAll((all) => all.map((li) => [li.className, li.textContent, li.dataset.source])), [
+      ['waiting', `${one.slug}-web 2.4.75 waits for a sign-off in prod`, 'fleet'], ['executing', `deploying ${one.slug}-web 2.4.76 to uat`, 'fleet'],
+    ]);
+    const cells = await card.locator('table.releases td.rel').evaluateAll((all) => all.map((cell) => [
+      cell.className, cell.dataset.flight || '', cell.querySelector('.status').getAttribute('aria-label'), cell.querySelector('.num').textContent, cell.querySelector('.when')?.textContent || '', cell.title,
+    ]));
+    assert.deepEqual(cells.map((cell) => cell.filter((part, index) => index !== 4)), [
+      ['rel same', '', 'deployed', '2.4.76', 'finished 2026-10-07 04:30 UTC'],
+      ['rel progress', 'executing', `${one.slug}-web / uat: deploying now`, '2.4.76', 'started 2026-10-07 04:40 UTC, not finished when the fleet read it'],
+      ['rel progress', 'waiting', `${one.slug}-web / prod: waits for a person`, '2.4.75', 'started 2026-10-07 04:38 UTC, not finished when the fleet read it'],
+    ]);
+    // A release that is there has its time (in the reader's zone); one that was being deployed says that instead.
+    assert.match(cells[0][4], /^Oct [67], 2026 \d+:30 [AP]M$/);
+    assert.deepEqual([cells[1][4], cells[2][4]], ['in progress when read', 'in progress when read']);
+    assert.deepEqual(await paintOf(card.locator('td.rel[data-flight="executing"] .status')), [FLIGHT, '', 'none', 'pulse']);
+    assert.deepEqual((await paintOf(card.locator('td.rel[data-flight="waiting"] .status'))).slice(0, 3), ['rgba(0, 0, 0, 0)', FLIGHT, 'double']);
+    const columns = await card.locator('table.releases').evaluate((table) => {
+      const left = (cell) => Math.round(cell.getBoundingClientRect().left);
+      return { heads: [...table.rows[0].cells].map(left), first: [...table.rows[1].cells].map(left), shown: [...table.rows[1].cells].map((cell) => document.defaultView.getComputedStyle(cell).display) };
+    });
+    assert.deepEqual(columns.heads, columns.first, 'the heads and the cells below them start at the same place');
+    assert.deepEqual([...new Set(columns.shown)], ['table-cell']);
+    // One system is deploying: the one whose flight the page may claim of now.
+    assert.equal(await page.locator('#fact-deploying b').textContent(), '1');
+    // The Octopus instance: what it is doing, beside its count against the cap, inside its box.
+    const octopus = boxOf(page, 'octopus');
+    assert.equal(await octopus.locator('.what').textContent(), '4 of 20 tasks');
+    assert.deepEqual(await octopus.locator('.acts .act').evaluateAll((all) => all.map((one) => [one.className, one.textContent])), [['act act-instance num', '2 running · 1 waits for a person']]);
+    const inside = await octopus.evaluate((box) => { const b = box.getBoundingClientRect(); const a = box.querySelector('.act').getBoundingClientRect(); const w = box.querySelector('.what').getBoundingClientRect(); return a.left >= b.left && a.right <= b.right && a.top >= w.bottom && a.bottom <= b.bottom; });
+    assert.equal(inside, true, 'the instance\'s line is inside its box, under its count');
+    assert.equal(await boxOf(page, 'kit').locator('.acts').count(), 0);
+    assert.deepEqual(complaints, []);
+  });
+});
+
+test('what the fleet read as in flight more than half an hour ago is said in the past tense and marks nothing', async () => {
+  const { data, fleet } = await activityData();
+  const [one, two] = fleet.systems;
+  await withPage(data, '2026-10-07T07:48:18Z', async (page) => {
+    await page.waitForSelector('body[data-flights="read"]');
+    assert.deepEqual(await actsOf(page, one.slug), [
+      ['act act-earlier', 'prod waited for a sign-off when read 3 h ago', 'fleet'], ['act act-earlier', 'was deploying web 2.4.76 to uat when read 3 h ago', 'fleet'],
+    ]);
+    assert.equal(await boxOf(page, one.slug).locator('.env[data-flight]').count(), 0);
+    assert.equal(await boxOf(page, one.slug).locator('.flight').count(), 0);
+    // The release that was being deployed still has no time, and still says why.
+    assert.deepEqual(await boxOf(page, one.slug).locator('.env').evaluateAll((all) => all.map((tile) => [tile.className, tile.title])), [
+      ['env same', 'tdd: deployed'], ['env progress', 'uat: in progress when read'], ['env progress', 'prod: in progress when read'],
+    ]);
+    assert.deepEqual(await paintOf(boxOf(page, one.slug).locator('.env.progress i').first()), [FLIGHT, '', 'none', 'none']);
+    assert.deepEqual(await paintOf(tile(page, one.slug).locator('td.rel.progress .status').first()), [FLIGHT, '', 'none', 'none']);
+    assert.deepEqual(await tile(page, one.slug).locator('.flights li').evaluateAll((all) => all.map((li) => [li.className, li.textContent])), [
+      ['earlier', `${one.slug}-web 2.4.75 waited for a sign-off in prod when the fleet read it 3 h ago`], ['earlier', `${one.slug}-web 2.4.76 was deploying to uat when the fleet read it 3 h ago`],
+    ]);
+    assert.equal(await tile(page, one.slug).getAttribute('data-deploying'), null);
+    assert.equal(await tile(page, one.slug).locator('td.rel[data-flight]').count(), 0);
+    assert.deepEqual(await actsOf(page, two.slug), [['act act-freeze', 'prod freezes Sat 00:00 UTC', 'fleet'], ['act act-last', 'last: web 2.4.75 to prod, 3 h ago', 'fleet']]);
+    assert.equal(await page.locator('#fact-deploying b').textContent(), '0');
+  });
+});
+
+test('the system\'s own file says what is in flight when it publishes one, and the box says it in the same words', async () => {
+  const { data, fleet } = await activityData();
+  const two = fleet.systems[1];
+  await writeFile(join(data, 'flights-quiet.json'), JSON.stringify({ generated: SOON_AFTER, deployments: [
+    { project: `${two.slug}-web`, environment: 'tdd', release: '2.4.77', state: 'executing', since: '2026-10-07T05:08:00Z', url: 'https://octopus.example/task' },
+  ] }));
+  await withPage(data, SOON_AFTER, async (page) => {
+    await page.waitForSelector('body[data-flights="read"]');
+    assert.deepEqual(await actsOf(page, two.slug), [['act act-deploying', 'deploying web 2.4.77 to tdd', 'system'], ['act act-freeze', 'prod freezes Sat 00:00 UTC', 'fleet']]);
+    assert.equal(await boxOf(page, two.slug).locator('.act-deploying').getAttribute('title'), `deploying ${two.slug}-web 2.4.77 to tdd (the system's own deployments.json)`);
+    assert.deepEqual(await boxOf(page, two.slug).locator('.env[data-flight]').evaluateAll((all) => all.map((tile) => [tile.dataset.env, tile.dataset.flight])), [['tdd', 'executing']]);
+    assert.deepEqual(await tile(page, two.slug).locator('.flights li').allTextContents(), [`deploying ${two.slug}-web 2.4.77 to tdd`]);
+  });
+});
+
+test('data without the fleet\'s activity draws as it did: no line, no tile in flight, nothing more in the Octopus box', async () => {
+  const data = await dataWith();
+  await withPage(data, SOON_AFTER, async (page, complaints) => {
+    await page.waitForSelector('body[data-flights="read"]');
+    assert.equal(await page.locator('#landscape .act').count(), 0);
+    assert.equal(await page.locator('#landscape .acts:not([hidden])').count(), 0);
+    assert.equal(await page.locator('[data-flight]').count(), 0);
+    assert.equal(await page.locator('.progress').count(), 0);
+    assert.equal(await boxOf(page, 'octopus').locator('.acts').count(), 0);
+    assert.deepEqual(await boxOf(page, 'octopus').evaluate((box) => [...box.children].map((child) => child.className)), ['', 'what']);
+    assert.deepEqual(complaints, []);
+  });
+});
+
+test('with reduced motion nothing of the activity moves, and on a phone it stays inside its box', async () => {
+  const { data, fleet } = await activityData();
+  const one = fleet.systems[0];
+  const server = await serve({ site, data });
+  const page = await browser.newPage({ viewport: { width: 400, height: 800 }, reducedMotion: 'reduce' });
+  await page.route(/^https:\/\/fonts\./, (route) => route.fulfill({ status: 200, contentType: 'text/css', body: '' }));
+  try {
+    await page.clock.setFixedTime(new Date(SOON_AFTER));
+    await page.goto(server.url);
+    await page.waitForSelector('body[data-flights="read"]');
+    assert.deepEqual(await actsOf(page, one.slug), [['act act-waiting', 'prod waits for a sign-off, 12 min', 'fleet'], ['act act-deploying', 'deploying web 2.4.76 to uat', 'fleet']]);
+    assert.equal((await paintOf(boxOf(page, one.slug).locator('.env[data-flight="executing"] i')))[3], 'none');
+    assert.equal(await boxOf(page, one.slug).locator('.act-deploying').evaluate((line) => document.defaultView.getComputedStyle(line, '::before').animationName), 'none');
+    assert.equal((await paintOf(tile(page, one.slug).locator('td.rel[data-flight="executing"] .status')))[3], 'none');
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), 0);
+    const fits = await boxOf(page, one.slug).evaluate((box) => { const b = box.getBoundingClientRect(); return [...box.querySelectorAll('.act')].every((act) => { const a = act.getBoundingClientRect(); return a.left >= b.left && a.right <= b.right; }); });
+    assert.equal(fits, true);
+  } finally {
+    await page.close();
+    await server.close();
+  }
+});

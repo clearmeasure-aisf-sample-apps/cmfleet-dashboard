@@ -50,6 +50,7 @@ There is one theme, the dark one of the screen it mimics.
 | Dashed, "Not read" | The fleet could not read the system, or its data is older than two of its six-hourly readings |
 | Dotted, "Asleep" | Switched off on purpose |
 | A blue dot | A deployment in flight, read every minute from the file each system publishes itself (`deployments.json`): pulsing while it runs, hollow while it is queued, ringed while it waits for a sign-off, small for what ended in the last ten minutes. The card says which release and environment |
+| A tile in the logo's sky blue in place of the green tick | Something is in flight there now: pulsing while it deploys, hollow while it is queued, ringed while it waits for a person. Still, with "in progress when read" where the time would be: the deployment had not ended when the fleet read it, so the release is not said to be there |
 | "Standards: 9 met · 1 gap …" | Where the system stands on every standard of the fleet. The whole list, with the fleet's words for each, opens on demand: met, behind, gap, broken, not compared (with the declared reason), intended variance, observed, nothing to judge, not checked |
 
 The box in the bar finds systems by what is typed: a system's name, what it is, its owner or one of its projects.
@@ -78,13 +79,42 @@ A system's box says more than its name (Jeffrey Palermo, 2026-10-09, to seven su
 |---|---|
 | What it is made of ("Container Apps", "AKS + Argo CD") | `madeOf` of the fleet's data: the system's own statement in the registry, or what its registry file implies |
 | A tile for tdd, uat and prod, in Octopus's colours | The worst of what the system's projects last did there: red where one failed, orange where one is behind the first environment, green otherwise, dashed where nothing is deployed |
-| "prod 2.4.73 · 3 h" | The newest deployment to production, or the one that failed |
+| A tile in sky blue | Something is deploying, queued or waiting for a person in that environment now (the sources are below); or, still and without a mark of its own, its deployment had not ended when the fleet read it |
+| "prod 2.4.73 · 3 h" | The newest deployment to production, or the one that failed. "prod 2.4.76 · in progress when read" where that deployment had not ended when the fleet read it (`inProgress` of the fleet's data), in place of a release with no time |
+| "prod waits for a sign-off, 12 min" | A deployment that waits for a person, and for how long. The whole of it is the line's title: project, release, who is responsible and who started it, where the fleet's data says so |
+| "deploying ui 2.4.76 to uat", "ui 2.4.76 queued for uat" | What is deploying or queued, the project named without the system's own name |
+| "prod frozen until Mon 00:00 UTC", "prod freezes Sat 00:00 UTC" | A deployment freeze in force, or one that begins within 72 hours of the fleet's reading; the page's own clock decides which. Always from the fleet's data (`activity.freezes`): no system publishes its freezes |
+| "last: ui 2.4.75 to prod, 20 min ago" | Only where nothing is in flight: the last deployment that ended, and how ("failed in", "canceled in") |
+| "was deploying ui 2.4.76 to uat when read 3 h ago" | What the fleet read as in flight more than half an hour ago, for a system that publishes no file of its own: said in the past tense, and it marks no tile |
 | "Behind the standard: 2 standards", "Needs attention: 1 broken" | The state in words with a count, only where the system is not as declared, so colour is not the one thing that says it |
 | "13 of 16 standards · 4.18 USD" | How many of the fleet's standards it meets, and the month's cost |
 | A dot at the top left | The answer of the system's health address, asked from the reader's browser just now: green for healthy, red for not; no dot where the system names no address or is asleep |
 | "pulls the standard" | It follows the kit's templates |
 
 A line the fleet read nothing for is left out.
+
+The activity is at most two lines, the most urgent first: what waits for a person, what is deploying, what is
+queued, a freeze, what the fleet read too long ago to claim of now, and last the last thing that happened (Jeffrey
+Palermo, 2026-10-09: "annotate the diagram nodes with the statuses and activities"). Two sources say it, and a line's
+title names its own:
+
+| Source | How fresh | Says |
+|---|---|---|
+| The system's own `deployments.json` (the kit's decisions 0016 and 0020), read from the browser every minute | Minutes | What is queued, executing or waiting, and what ended in the last ten minutes |
+| `activity` of `fleet.json`: the fleet's own reading of Octopus (`get-fleet-status.ps1` of the kit) | Up to six hours | The same for every system, also one that publishes no file; the last five deployments that ended; who started a deployment and who is responsible for a sign-off; deployment freezes |
+
+They are never both shown about the same thing. Where a system's file was read, what is in flight comes from it
+alone: a file that names nothing says nothing is in flight, and what the fleet read earlier is not set against it.
+Where a system publishes no file (or it cannot be read), the fleet's reading is used: in the present tense and with
+the marks of flight for half an hour after it was read, in the past tense with its age after that, and not at all
+once the fleet's data is older than two readings. "last:" is the newest of what either source says ended. A freeze
+is always the fleet's. The card under the landscape lists the same deployments in full, and its grid carries the
+same blue tiles.
+
+The Octopus Deploy box says what the instance was doing when the fleet read it, beside its count against the task
+cap: "4 of 20 tasks", then "2 running · 1 waits for a person" (`activity` of the shared service `octopus`: tasks
+executing and queued that the fleet's read-only account sees, and the deployments of the fleet's systems that wait
+for a person). Data without these fields draws as it did before: no line, no blue tile.
 
 No box of the landscape does nothing (Jeffrey Palermo, 2026-10-08: "whatever the box represents I want to be able to
 click and zoom into the view of that resource"). Octopus Deploy opens the instance, the delivery standard and the

@@ -255,7 +255,32 @@ footer p { margin: 0 0 6px; }
 .flights li.succeeded::before, .flights li.failed::before, .flights li.canceled::before { width: 6px; height: 6px; margin: 2px; }
 .flights li.failed { color: var(--crit); }
 .flights li.failed::before { background: var(--crit-fill); }
-@media (prefers-reduced-motion: reduce) { .entity .flight.executing, .flights li.executing::before { animation: none; } }
+.flights li.earlier { color: var(--muted); }
+.flights li.earlier::before { width: 6px; height: 6px; margin: 2px; background: var(--line-strong); }
+/* What happens in a system, on its box: at most two lines, each with a mark in the colour of flight. Ringed for what
+   waits for a person, pulsing for what is deploying, hollow for what is queued, a square for a freeze; the last
+   thing that happened and what the fleet read earlier are plain. */
+.entity .acts { display: grid; gap: 2px; justify-items: center; margin-top: 2px; }
+.entity .act { font-size: .8rem; font-weight: 500; overflow-wrap: anywhere; }
+.entity .act::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: var(--flight); }
+.entity .act-waiting { font-weight: 700; }
+.entity .act-waiting::before { background: transparent; border: 3px double var(--flight); }
+.entity .act-deploying::before { animation: pulse 1.2s ease-in-out infinite; }
+.entity .act-queued::before { background: transparent; border: 2px solid var(--flight); }
+.entity .act-freeze::before { border-radius: 1px; }
+.entity .act-last, .entity .act-earlier, .entity .act-instance { font-weight: 400; color: var(--cm-light-blue); }
+.entity .act-last::before, .entity .act-earlier::before, .entity .act-instance::before { content: none; }
+.entity .act-failed { color: var(--crit); }
+/* An environment's tile while something is in flight there, on a box and in a card's grid: the colour of flight in
+   place of the tick. A release that was being deployed when the fleet read it is that colour and still. */
+.entity .env.progress i, .entity .env[data-flight] i, td.rel.progress .status, td.rel[data-flight] .status { background: var(--flight); }
+.entity .env[data-flight="executing"] i, td.rel[data-flight="executing"] .status { animation: pulse 1.2s ease-in-out infinite; }
+.entity .env[data-flight="queued"] i, td.rel[data-flight="queued"] .status { background: transparent; border: 3px solid var(--flight); }
+.entity .env[data-flight="waiting"] i, td.rel[data-flight="waiting"] .status { background: transparent; border: 6px double var(--flight); }
+td.rel.progress .release .when { color: var(--flight); }
+@media (prefers-reduced-motion: reduce) {
+  .entity .flight.executing, .flights li.executing::before, .entity .act-deploying::before, .entity .env[data-flight="executing"] i, td.rel[data-flight="executing"] .status { animation: none; }
+}
 
 /* Zoomed into one system: its dashboard over the whole screen, inside the fleet's page. */
 .zoom { position: fixed; inset: 0; z-index: 10; display: grid; grid-template-rows: auto minmax(0, 1fr); background: var(--bg); transform-origin: 0 0; will-change: transform, opacity; }
