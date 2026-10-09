@@ -22,12 +22,15 @@ branding ... mimic the styling of the octopus screen ... use Clear Measure brand
 | A system drawn as a project group: its name, how many projects, then each project with a tile, the release and when for every environment | Octopus's Projects screen | `drawReleases` in `src/app.js` |
 | The green tile with a tick for a deployment that succeeded, red with a cross for one that failed, the green primary button, blue for links | Octopus | `--ok`, `--crit-fill`, `--link` |
 | The logo, in the bar where Octopus has its own, and its mark as the page's icon | Clear Measure | `src/clear-measure-logo-white.png`, `src/favicon.png` |
-| The blue of the landscape's boxes, the light blue of bars and of a deployment in flight, and the gold of "behind the standard" | Clear Measure's palette: `#004B87`, `#003B6A`, `#CFEAFF`, `#E5AC1A`, and the logo's `#24ABE1` | `--cm-blue`, `--cm-dark-blue`, `--cm-light-blue`, `--cm-gold`, `--cm-sky` |
-| Roboto, with Segoe UI and Helvetica Neue behind it | Octopus's type; the fallbacks are Clear Measure's | `--body` |
+| The navy of the landscape's boxes, the primary blue of what is selected, focused or filled, and the yellow of "behind the standard" | Clear Measure's palette as clearmeasure.com carries it: navy `#004B87`, primary blue `#0085CA`, deep navy `#043E6C`, accent yellow `#EECB1A`, pale blue `#CFEAFF`; and the logo's own `#24ABE1` for a deployment in flight | `--cm-blue`, `--cm-primary`, `--cm-deep`, `--cm-yellow`, `--cm-light-blue`, `--cm-sky` |
+| Headings and the fleet's name in Jost | Clear Measure's site is set in Futura and loads Jost as the face a browser can get | `--display` |
+| Everything else in Roboto: tables, numbers, text | Octopus's type | `--body`, `--data` |
 
-The palette is the one Clear Measure's own web applications carry in their stylesheets, and the logo files are the
-ones they ship. The brand guide itself was not at hand when this was made: where it says otherwise, the variables at
-the top of `src/styles.css` are the one place to change.
+No brand guide document was found. The source is the public site's own stylesheet (read on 2026-10-08:
+`wp-content/uploads/elementor/css/post-96.css` of clearmeasure.com), which Jeffrey Palermo accepted as the brand
+source that day; the logo files are the ones Clear Measure's own web applications ship. Links stay Octopus's light
+blue: the primary blue on these dark surfaces is for marks and edges, where its contrast is enough. Where a guide
+says otherwise, the variables at the top of `src/styles.css` are the one place to change.
 
 There is one theme, the dark one of the screen it mimics.
 
@@ -41,7 +44,7 @@ There is one theme, the dark one of the screen it mimics.
 | An empty dashed tile | Nothing is deployed there |
 | No colour on a system's card, "As declared" | The normal state of a system has no colour |
 | Orange, "Needs attention" | Something that worked has stopped: a failed deployment or check, an environment left behind, a stale proof |
-| Gold, "Behind the standard" | Nothing has stopped, and the system does not keep every standard yet: a gap it never closed, or a change of the standard it has not taken yet. Why is on the card's face |
+| Yellow, "Behind the standard" | Nothing has stopped, and the system does not keep every standard yet: a gap it never closed, or a change of the standard it has not taken yet. Why is on the card's face |
 | Red, "Production affected" | The last deployment to production failed, or a service every system depends on is out |
 | Dashed, "Not read" | The fleet could not read the system, or its data is older than two of its six-hourly readings |
 | Dotted, "Asleep" | Switched off on purpose |
@@ -73,7 +76,7 @@ as of the last reading.
 
 | Part | Here |
 |---|---|
-| Private build | `pwsh -NoProfile -File build.ps1`: one command, before a commit |
+| Private build | `pwsh -NoProfile -File build.ps1`: one command, before a commit. Only it writes the build's facts, and the facts say so: `build.command`, and `build.ranBy` (`integration` in what is deployed) with the run's address |
 | Integration build | `.github/workflows/build.yml` runs the same command on every pull request and commit |
 | Static analysis | eslint and PSScriptAnalyzer, warnings as errors; the count is in the build's facts |
 | Unit tests | `test/unit`: the model (`src/model.js`), with coverage of at least 90 percent of its lines |

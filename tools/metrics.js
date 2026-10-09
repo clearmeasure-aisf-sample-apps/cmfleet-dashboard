@@ -75,6 +75,13 @@ const facts = {
   commitUrl: repository && commit ? `${repository}/commit/${commit}` : '',
   builtAt: new Date().toISOString().replace(/\.\d+Z$/, 'Z'),
   buildUrl: process.env.BUILD_URL || '',
+  // Which command built this, and who ran it: the private build is the one thing that writes these facts, so an
+  // artifact that has them was built by it. The integration build names its run; a developer's desk does not.
+  build: {
+    command: 'pwsh -NoProfile -File build.ps1',
+    ranBy: process.env.BUILD_URL ? 'integration' : 'private',
+    run: process.env.BUILD_URL || '',
+  },
   code: await code(),
   tests: {
     unit: await tests('test/unit'),

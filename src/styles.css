@@ -1,7 +1,7 @@
 /* The fleet health dashboard: a wall for operators who act on it.
    It wears two brands. The surfaces, the cards, the status tiles and the type are those of Octopus Deploy's dark
    screens, because every system on this page is released there and a reader comes from there. The logo, the blue of
-   the boxes and of what is selected, and the gold are Clear Measure's. */
+   the boxes and of what is selected, the yellow and the face of the headings are Clear Measure's. */
 *, *::before, *::after { box-sizing: border-box; }
 html { color-scheme: dark; }
 body { margin: 0; }
@@ -10,18 +10,19 @@ img, svg { max-width: 100%; }
 /* Layout: a bar with the logo and the fleet's name, the sections of the page beside it, then the fleet's counts, one
    card per system with what each of its projects runs in each environment, the landscape, and what every system
    shares. A deployment that succeeded wears Octopus's green tile. A system's state keeps its own colours: none for
-   as declared, orange for what stopped working, gold for behind the standard, red where production is affected. */
+   as declared, orange for what stopped working, yellow for behind the standard, red where production is affected. */
 :root {
   /* Octopus Deploy, dark: navy surfaces, one line colour, blue for links, green for what succeeded. */
   --bg: #111a23; --bar: #1f303f; --side: #16212c; --surface: #111a23; --raised: #1f303f; --hover: #24394b;
   --ink: #f4f6f8; --muted: #9fb3c5; --line: #2e475d; --line-strong: #557c9e;
   --link: #87bfec; --ok: #00ab62; --ok-strong: #00874d;
   --attn: #f58d3a; --attn-bg: #3a2a1c; --crit: #ff7a7a; --crit-fill: #d63d3d; --crit-bg: #3a1d22;
-  /* Clear Measure: the blues of the logo and of the brand's pages, and its gold. */
-  --cm-dark-blue: #003b6a; --cm-blue: #004b87; --cm-light-blue: #cfeaff; --cm-sky: #24abe1; --cm-gold: #e5ac1a; --cm-gold-hover: #ffc72c;
+  /* Clear Measure, as clearmeasure.com carries it: its primary blue, its navy, its deep navy and its accent yellow;
+     the sky blue is the logo's own. Its headings are set in Futura, with Jost as the face a browser can load. */
+  --cm-primary: #0085ca; --cm-blue: #004b87; --cm-deep: #043e6c; --cm-light-blue: #cfeaff; --cm-sky: #24abe1; --cm-yellow: #eecb1a;
   --box: var(--cm-blue); --box-ink: #ffffff;
-  --behind: var(--cm-gold); --behind-bg: #37301a; --flight: var(--cm-sky);
-  --display: Roboto, "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --behind: var(--cm-yellow); --behind-bg: #37321a; --flight: var(--cm-sky);
+  --display: Jost, Futura, "Futura PT", "Century Gothic", "Trebuchet MS", Roboto, "Segoe UI", Arial, sans-serif;
   --body: Roboto, "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --data: Roboto, "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --radius: 4px;
@@ -32,7 +33,7 @@ img, svg { max-width: 100%; }
 body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.45; }
 a { color: var(--link); text-decoration: none; }
 a:hover { text-decoration: underline; text-underline-offset: 3px; }
-a:focus-visible, summary:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+a:focus-visible, summary:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--cm-primary); outline-offset: 2px; }
 h1, h2, h3 { font-family: var(--display); margin: 0; text-wrap: balance; }
 h1 { font-size: 1.75rem; font-weight: 700; }
 h2 { font-size: 1.15rem; font-weight: 700; }
@@ -43,11 +44,11 @@ h2 { font-size: 1.15rem; font-weight: 700; }
 .topbar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; min-height: 56px; padding: 8px clamp(12px, 1.6vw, 24px); background: var(--bar); }
 .brand { display: inline-flex; align-items: center; }
 .brand img { display: block; height: 40px; width: auto; }
-.space { padding: 7px 14px; border-radius: var(--radius); background: var(--bg); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.space { padding: 7px 14px; border-radius: var(--radius); background: var(--bg); font-family: var(--display); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .find { flex: 1 1 260px; max-width: 470px; }
 .find input { width: 100%; padding: 8px 12px; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--radius); }
 .find input::placeholder { color: var(--muted); }
-.find input:focus { border-color: var(--link); outline: 1px solid var(--link); outline-offset: 0; }
+.find input:focus { border-color: var(--cm-primary); outline: 1px solid var(--cm-primary); outline-offset: 0; }
 
 .shell { display: grid; grid-template-columns: 232px minmax(0, 1fr); align-items: start; background: linear-gradient(to right, var(--side) 232px, transparent 232px); }
 .side { position: sticky; top: 56px; display: grid; gap: 2px; padding: 20px 12px; min-height: calc(100vh - 56px); background: var(--side); align-content: start; }
@@ -55,7 +56,7 @@ h2 { font-size: 1.15rem; font-weight: 700; }
 .side h2:first-child { margin-top: 0; }
 .side a { padding: 8px 10px; border-radius: var(--radius); color: var(--ink); }
 .side a:hover { background: var(--hover); text-decoration: none; }
-.side a.on { background: var(--raised); color: var(--link); }
+.side a.on { background: var(--raised); color: #ffffff; box-shadow: inset 4px 0 0 var(--cm-primary); }
 
 .wall { padding: 24px clamp(16px, 2.2vw, 40px) 40px; display: grid; gap: 26px; min-width: 0; }
 .top { display: flex; flex-wrap: wrap; gap: 14px 40px; align-items: center; justify-content: space-between; }
@@ -87,7 +88,8 @@ h2 { font-size: 1.15rem; font-weight: 700; }
 
 /* A system is drawn as Octopus draws a project group: its name and how many projects, then each project with what it
    runs in each environment. */
-.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 620px), 1fr)); gap: 16px; align-items: start; }
+/* A card is as wide as three environments with their dates need: two beside each other only where both fit whole. */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 720px), 1fr)); gap: 16px; align-items: start; }
 .tile { border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: var(--radius); display: grid; min-width: 0; }
 .tile > * { padding-inline: 20px; }
 .tile > :last-child { padding-bottom: 16px; }
@@ -171,8 +173,8 @@ table.standards tr[data-status="met"] td.stands { color: var(--ok); font-weight:
 .map svg g.entity[data-zoom] { cursor: zoom-in; }
 .map svg g[data-open] { cursor: pointer; }
 .map svg g.entity[data-zoom]:hover rect, .map svg g.entity[data-open]:hover > rect { filter: brightness(1.3); }
-.map svg g.cluster[data-open]:hover > rect { stroke: var(--link) !important; }
-.map svg g[data-open]:focus-visible { outline: 2px solid var(--link); outline-offset: 3px; }
+.map svg g.cluster[data-open]:hover > rect { stroke: var(--cm-primary) !important; }
+.map svg g[data-open]:focus-visible { outline: 2px solid var(--cm-primary); outline-offset: 3px; }
 .map svg g.link text { fill: var(--muted) !important; }
 .map svg g.link path, .map svg g.link polygon { stroke: var(--line-strong) !important; }
 .map svg g.link polygon { fill: var(--line-strong) !important; }
@@ -199,7 +201,7 @@ table.standards tr[data-status="met"] td.stands { color: var(--ok); font-weight:
 .limit .name { font-size: .88rem; }
 .limit .where { color: var(--muted); font-size: .78rem; }
 .bar { height: 8px; background: var(--raised); border-radius: 4px; overflow: hidden; }
-.bar i { display: block; height: 100%; background: var(--cm-sky); }
+.bar i { display: block; height: 100%; background: var(--cm-primary); }
 .bar.over i { background: var(--attn); }
 .unused { margin: 0; color: var(--muted); font-size: .86rem; }
 footer { color: var(--muted); font-size: .84rem; max-width: 90ch; }
