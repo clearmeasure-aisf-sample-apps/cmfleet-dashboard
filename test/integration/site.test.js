@@ -469,6 +469,28 @@ test('no box of the landscape does nothing: a system zooms in, every other box o
   });
 });
 
+test('a card leads to the system\'s resource groups in the portal, and the subscription\'s box to the subscription', async () => {
+  const portal = 'https://portal.azure.com/#resource/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups';
+  const data = await dataWith((fleet) => {
+    fleet.fleet.azurePortal = portal;
+    fleet.systems[0].azure = [{ group: 'rg-one-nonprod', url: `${portal}/rg-one-nonprod/overview` }, { group: 'rg-one-prod', url: `${portal}/rg-one-prod/overview` }];
+    fleet.systems[1].azure = [];
+    delete fleet.systems[2].azure;
+    return fleet;
+  });
+  const fleet = JSON.parse(await readFile(join(data, 'fleet.json'), 'utf8'));
+  await withPage(data, SOON_AFTER, async (page, complaints) => {
+    const azure = (slug) => tile(page, slug).locator('.links a').evaluateAll((all) => all.filter((link) => link.textContent.startsWith('Azure')).map((link) => [link.textContent, link.getAttribute('href'), link.getAttribute('target')]));
+    assert.deepEqual(await azure(fleet.systems[0].slug), [
+      ['Azure: rg-one-nonprod', `${portal}/rg-one-nonprod/overview`, '_blank'], ['Azure: rg-one-prod', `${portal}/rg-one-prod/overview`, '_blank'],
+    ]);
+    assert.deepEqual(await azure(fleet.systems[1].slug), [['Azure subscription', portal, '_blank']]);
+    assert.deepEqual(await azure(fleet.systems[2].slug), [['Azure subscription', portal, '_blank']]);
+    assert.equal(await page.locator('#landscape g.cluster[data-box="subscription"]').getAttribute('data-open'), portal);
+    assert.deepEqual(complaints, []);
+  });
+});
+
 test('the page fits a phone: nothing scrolls sideways', async () => {
   const data = await dataWith();
   const server = await serve({ site, data });

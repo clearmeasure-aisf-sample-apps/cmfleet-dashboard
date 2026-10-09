@@ -243,6 +243,14 @@ export function hostOf(url) {
   try { return new URL(url).host; } catch { return ''; }
 }
 
+// Where a system is in Azure: each resource group the fleet's data names for it, with its address in the portal. A
+// system the data names no group for leads to the subscription, when the data names that; otherwise nowhere.
+export function azureLinks(system, fleet) {
+  const groups = (system.azure || []).filter((one) => one.group && one.url);
+  if (groups.length) return groups.map((one) => ({ text: `Azure: ${one.group}`, url: one.url }));
+  return fleet?.azurePortal ? [{ text: 'Azure subscription', url: fleet.azurePortal }] : [];
+}
+
 // A system with nothing to zoom into still leads somewhere: its space in Octopus, where what it runs is shown, or its
 // repository when the fleet read no space.
 export function systemDoor(system) {

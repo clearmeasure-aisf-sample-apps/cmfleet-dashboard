@@ -2,7 +2,7 @@
 // each thing means is decided in model.js; this file only puts it on the page.
 import { initZoom, openFromAddress } from './zoom.js';
 import {
-  STATE_WORDS, asked, behindReasons, boxLinks, counts, deploymentMarks, displayState, flightState, fleetFacts, formatAge, formatWhen, healthWord, hostOf, limitShare, limitsInUse,
+  STATE_WORDS, asked, azureLinks, behindReasons, boxLinks, counts, deploymentMarks, displayState, flightState, fleetFacts, formatAge, formatWhen, healthWord, hostOf, limitShare, limitsInUse,
   matches, observed, releaseGrid, releaseWord, serviceState, standing, standingSummary, systemDoor, systemLink, withoutSlug,
 } from './model.js';
 
@@ -143,7 +143,7 @@ function drawStanding(system) {
   return el('div', { class: 'grid-wrap' }, [table]);
 }
 
-function drawLinks(system) {
+function drawLinks(system, fleet) {
   const fee = system.parts.filter((part) => !/registry/i.test(part.part)).length;
   const link = (url, text) => (url ? el('a', { href: url, text }) : null);
   return [
@@ -156,13 +156,14 @@ function drawLinks(system) {
       link(system.runtimeView, 'Runtime view'),
       link(system.dashboard, 'Its dashboard') || el('span', { class: 'sub', text: 'No dashboard of its own' }),
       link(system.repositoryUrl, 'Repository'), link(system.space?.url, 'Octopus space'), link(system.findingsUrl, 'Findings'),
+      ...azureLinks(system, fleet).map((one) => el('a', { href: one.url, target: '_blank', rel: 'noopener', text: one.text })),
     ]),
   ];
 }
 
 // What a system never had, what is only observed and what it declares as intended: counted in the summary, read on
 // demand. Colour and the tile's face are for what has stopped working.
-function drawMore(system) {
+function drawMore(system, fleet) {
   const count = counts(system);
   const summary = [
     count.gap ? plural(count.gap, 'gap', 'gaps') : '',
@@ -176,11 +177,11 @@ function drawMore(system) {
   if (system.variances.length) {
     more.append(el('h4', { text: 'Intended variances' }), el('ul', {}, system.variances.map((variance) => el('li', {}, [variance.variance, el('span', { text: ` ${variance.reason}` })]))));
   }
-  more.append(...drawLinks(system));
+  more.append(...drawLinks(system, fleet));
   return more;
 }
 
-function drawTile(system, facts) {
+function drawTile(system, facts, fleet) {
   const state = displayState(system, facts.stale);
   const releases = drawReleases(system);
   const tile = el('article', { class: 'tile', 'data-state': state, 'data-system': system.slug });
@@ -206,7 +207,7 @@ function drawTile(system, facts) {
   if (system.asleep && state !== 'asleep') tile.append(el('p', { class: 'sub asleep-note', text: 'Asleep: switched off on purpose.' }));
   if (system.health && system.asleep) tile.append(el('p', { class: 'health', text: 'health: not asked while asleep' }));
   else if (system.health) tile.append(el('p', { class: 'health', 'data-health': system.health, text: 'health: not probed yet' }));
-  tile.append(drawMore(system));
+  tile.append(drawMore(system, fleet));
   return tile;
 }
 
@@ -368,7 +369,7 @@ function draw(now) {
   const facts = fleetFacts(last.data, now);
   drawFacts(last.data, facts);
   if (last.svg) drawLandscape(last.svg, last.data, facts);
-  byId('tiles').replaceChildren(...last.data.systems.map((system) => drawTile(system, facts)));
+  byId('tiles').replaceChildren(...last.data.systems.map((system) => drawTile(system, facts, last.data.fleet)));
   find();
   drawShared(last.data, facts);
   drawFoot(last.data, config);
