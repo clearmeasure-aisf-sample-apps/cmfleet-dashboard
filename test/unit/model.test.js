@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  AZURE_PORTAL, azureLinks, boxLinks, boxTitle, hostOf, landscape,
+  AZURE_PORTAL, azureLinks, boxLinks, boxTitle, costLine, environmentTiles, hostOf, landscape, prodLine, standardsLine, stateLine,
   FINISHED_MINUTES, STALE_AFTER_HOURS, ageHours, asked, behindReasons, counts, deploymentMarks, deploymentText, flightState, deploymentWord, displayState, findText, fleetFacts, formatAge, formatWhen,
   healthWord, isStale, limitShare, limitsInUse, matches, observed, parseUtc, prodEnvironments, prodRows, releaseGrid, releaseWord, serviceState, standing,
   standingSummary, systemDoor, systemLink, withoutSlug,
@@ -332,8 +332,9 @@ test('the landscape is who watches, the oversight, every system in the subscript
     ],
     shared: { services: [{ id: 'octopus', name: 'Octopus Deploy', state: 'ok', detail: '4 of 20 tasks' }, { id: 'kit', name: 'Delivery standard', state: 'attention' }] },
   };
-  const scape = landscape(data, false);
-  assert.deepEqual(scape.systems, [
+  const scape = landscape(data, false, now);
+  const shape = ({ name, title, text, state, zoom, open, pulls }) => ({ name, title, text, state, zoom, open, pulls });
+  assert.deepEqual(scape.systems.map(shape), [
     { name: 'one', title: 'one', text: 'System one', state: 'attention', zoom: 'https://one.example/#runtime/prod', open: '', pulls: true },
     { name: 'two', title: 'two', text: 'System two', state: 'ok', zoom: '', open: 'https://acme.octopus.app/app#/Spaces-2', pulls: false },
     { name: 'three', title: 'three', text: 'A demo system', state: 'behind', zoom: '', open: '', pulls: true },
@@ -348,10 +349,10 @@ test('the landscape is who watches, the oversight, every system in the subscript
   assert.match(scape.operators.open, /label%3Afleet-finding$/);
   assert.equal(scape.subscription.open, AZURE_PORTAL);
   // Old data is not read, whatever it said.
-  assert.deepEqual(landscape(data, true).systems.map((one) => one.state), ['not-read', 'not-read', 'not-read']);
-  assert.deepEqual(landscape(data, true).services.map((one) => one.state), ['not-read', 'not-read']);
+  assert.deepEqual(landscape(data, true, now).systems.map((one) => one.state), ['not-read', 'not-read', 'not-read']);
+  assert.deepEqual(landscape(data, true, now).services.map((one) => one.state), ['not-read', 'not-read']);
   // Data with nothing in it still draws the frame.
-  const bare = landscape({ systems: [] }, false);
+  const bare = landscape({ systems: [] }, false, now);
   assert.deepEqual([bare.systems.length, bare.services.length, bare.pulling, bare.fleet.title, bare.fleet.open], [0, 0, 0, 'The fleet', '']);
 
   assert.equal(boxTitle(scape.systems[0]), 'one: Needs attention. Zooms into its dashboard');
@@ -359,4 +360,63 @@ test('the landscape is who watches, the oversight, every system in the subscript
   assert.equal(boxTitle(scape.systems[2]), 'three: Behind the standard');
   assert.equal(boxTitle(scape.operators), 'Operators. Opens github.com in a new tab');
   assert.equal(boxTitle({ title: 'Nothing' }), 'Nothing');
+});
+
+test('a system\'s box says where it stands in each environment: the worst of its projects there', () => {
+  const one = system({ projects: [
+    project('web', { tdd: ['2.0', 'Success', '2026-10-07 10:00'], uat: ['1.9', 'Success', '2026-10-06 10:00'], prod: ['1.9', 'Success', '2026-10-06 11:00'] }),
+    project('api', { tdd: ['3.1', 'Success', '2026-10-07 09:00'], uat: ['3.1', 'Success', '2026-10-07 09:30'], prod: ['3.1', 'Failed', '2026-10-07 09:45'] }),
+    project('never', { tdd: ['', '', ''] }),
+  ] });
+  assert.deepEqual(environmentTiles(one), [
+    { name: 'tdd', kind: 'same', word: 'tdd: deployed' },
+    { name: 'uat', kind: 'behind', word: 'uat: deployed, behind tdd' },
+    { name: 'prod', kind: 'failed', word: 'prod: failed' },
+  ]);
+  assert.deepEqual(environmentTiles(system()).map((tile) => tile.kind), ['none', 'none', 'none']);
+  assert.deepEqual(environmentTiles(system({ projects: [project('web', { tdd: ['2.0', 'Success', 'x'] })] })).map((tile) => tile.word), ['tdd: deployed', 'uat: not deployed', 'prod: not deployed']);
+});
+
+test('and what production runs: its newest deployment, or the one that failed', () => {
+  const healthy = system({ projects: [
+    project('web', { prod: ['1.9', 'Success', '2026-10-07 09:00'] }),
+    project('api', { prod: ['3.1', 'Success', '2026-10-07 11:30'] }),
+  ] });
+  assert.equal(prodLine(healthy, now), 'prod 3.1 · 30 min');
+  const failed = system({ projects: [
+    project('web', { prod: ['1.9', 'Success', '2026-10-07 11:30'] }),
+    project('api', { prod: ['3.1', 'TimedOut', '2026-10-07 09:00'] }),
+  ] });
+  assert.equal(prodLine(failed, now), 'prod 3.1 timedout');
+  assert.equal(prodLine(system({ projects: [project('web', { prod: ['1.9', 'Success', 'not a time'] })] }), now), 'prod 1.9');
+  assert.equal(prodLine(system({ projects: [project('web', { tdd: ['2.0', 'Success', 'x'] })] }), now), '');
+  assert.equal(prodLine(system(), now), '');
+});
+
+test('and its state in words with a count, its standards and its cost; nothing where the fleet read nothing', () => {
+  assert.equal(stateLine(system(), false), '');
+  assert.equal(stateLine(system({ state: 'behind', behind: ['GitHub identity: a user\'s token', 'Private build: not yet'] }), false), 'Behind the standard: 2 standards');
+  assert.equal(stateLine(system({ state: 'behind', behind: ['one'] }), false), 'Behind the standard: 1 standard');
+  assert.equal(stateLine(system({ state: 'behind' }), false), 'Behind the standard');
+  assert.equal(stateLine(system({ state: 'attention', findings: [{ key: 'a', class: 'broken' }, { key: 'b', class: 'gap' }, { key: 'c' }] }), false), 'Needs attention: 2 broken');
+  assert.equal(stateLine(system({ state: 'attention' }), false), 'Needs attention');
+  assert.equal(stateLine(system({ state: 'critical', findings: [{ key: 'a', class: 'critical' }] }), false), 'Production affected');
+  assert.equal(stateLine(system({ asleep: true }), false), 'Asleep');
+  assert.equal(stateLine(system(), true), 'Not read');
+
+  assert.equal(standardsLine(system({ standards: [{ standard: 'tests', status: 'met' }, { standard: 'build', status: 'behind' }, { standard: 'idle', status: 'met' }] })), '2 of 3 standards');
+  assert.equal(standardsLine(system()), '');
+  assert.equal(costLine(system({ cost: { monthToDate: '12.40', currency: 'USD' } })), '12.40 USD');
+  assert.equal(costLine(system()), '');
+
+  const scape = landscape({ systems: [
+    system({ slug: 'one', madeOf: 'Container Apps', health: 'https://one.example/health', cost: { monthToDate: '1.74', currency: 'USD' }, standards: [{ standard: 'tests', status: 'met' }] }),
+    system({ slug: 'two', health: 'https://two.example/health', asleep: true }),
+    system({ slug: 'three' }),
+  ] }, false, now);
+  assert.deepEqual(scape.systems.map((one) => [one.madeOf, one.small, one.health, one.runs, one.says]), [
+    ['Container Apps', '1 of 1 standards · 1.74 USD', true, '', ''],
+    ['', '', false, '', 'Asleep'],
+    ['', '', false, '', ''],
+  ]);
 });

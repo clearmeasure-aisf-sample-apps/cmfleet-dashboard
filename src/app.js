@@ -50,6 +50,19 @@ function drawFacts(data, facts) {
   ])));
 }
 
+// What a system's box says beyond its name: what it is made of, where it stands in each environment, what production
+// runs, its state in words, two numbers, and whether it follows the kit. A line the fleet read nothing for is left out.
+function drawBoxFacts(box) {
+  const line = (kind, text) => (text ? el('span', { class: kind, text }) : null);
+  const tiles = (box.tiles || []).map((tile) => el('span', { class: `env ${tile.kind}`, title: tile.word }, [el('i', { role: 'img', 'aria-label': tile.word }), el('span', { text: tile.name })]));
+  return [
+    line('made', box.madeOf),
+    tiles.length ? el('span', { class: 'envs' }, tiles) : null,
+    line('runs num', box.runs), line('says', box.says), line('small num', box.small),
+    line('chip', box.pulls ? 'pulls the standard' : ''),
+  ];
+}
+
 // One box of the landscape. A system's box is a link the zoom takes over; every other box is a plain link that
 // opens beside this page; a box that leads nowhere is not a link at all.
 function drawBox(box, kind) {
@@ -58,9 +71,10 @@ function drawBox(box, kind) {
   if (box.zoom) Object.assign(attributes, { href, 'data-zoom': box.name });
   else if (box.open) Object.assign(attributes, { href, target: '_blank', rel: 'noopener', 'data-open': box.open });
   return el(href ? 'a' : 'div', attributes, [
+    box.health ? el('span', { class: 'pulse', 'data-health-of': box.name, role: 'img', 'aria-label': 'health: not asked yet', title: 'health: not asked yet' }) : null,
     el('b', { text: box.title }),
     box.text ? el('span', { class: 'what', text: box.text }) : null,
-    box.pulls ? el('span', { class: 'chip', text: 'pulls the standard' }) : null,
+    ...drawBoxFacts(box),
   ]);
 }
 
@@ -68,8 +82,8 @@ const drawRel = (text, direction) => el('span', { class: `rel ${direction}` }, [
 
 // The landscape is drawn here, from the fleet's data: boxes that wrap to the width of the page, in the page's own
 // colours and type. The fleet's C4 drawing of the same thing stays where the fleet publishes it.
-function drawLandscape(data, facts) {
-  const scape = landscape(data, facts.stale);
+function drawLandscape(data, facts, now) {
+  const scape = landscape(data, facts.stale, now);
   const frame = el('section', { class: 'cluster', 'data-box': 'subscription', 'aria-label': 'Azure subscription' }, [
     el('header', {}, [
       scape.subscription.open
@@ -289,6 +303,13 @@ async function probeAll() {
     const word = healthWord(await probe(line.dataset.health));
     line.textContent = `health: ${word} (asked just now)`;
     line.dataset.word = word.replace(/\s.*$/, '');
+    // The same answer as a dot on the system's box in the landscape.
+    const dot = document.querySelector(`#landscape .pulse[data-health-of="${line.closest('article')?.dataset.system}"]`);
+    if (dot) {
+      dot.dataset.word = line.dataset.word;
+      dot.title = `health: ${word} (asked just now)`;
+      dot.setAttribute('aria-label', dot.title);
+    }
   }));
 }
 
@@ -348,7 +369,7 @@ function draw(now) {
   if (!last) return;
   const facts = fleetFacts(last.data, now);
   drawFacts(last.data, facts);
-  drawLandscape(last.data, facts);
+  drawLandscape(last.data, facts, now);
   byId('tiles').replaceChildren(...last.data.systems.map((system) => drawTile(system, facts, last.data.fleet)));
   find();
   drawShared(last.data, facts);

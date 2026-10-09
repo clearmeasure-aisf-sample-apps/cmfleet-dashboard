@@ -241,6 +241,55 @@ test('a system that names a health address is probed from the page', async () =>
     await page.waitForFunction(() => [...document.querySelectorAll('[data-health]')].every((line) => line.dataset.word));
     assert.match(await tile(page, fleet.systems[0].slug).locator('.health').textContent(), /^health: healthy/);
     assert.match(await tile(page, fleet.systems[1].slug).locator('.health').textContent(), /^health: answers 404/);
+    // The same answer is a dot on the system's box in the landscape; a system that names no address has no dot.
+    const dot = (slug) => page.locator(`#landscape .entity[data-box="${slug}"] .pulse`);
+    assert.equal(await dot(fleet.systems[0].slug).getAttribute('data-word'), 'healthy');
+    assert.match(await dot(fleet.systems[0].slug).getAttribute('title'), /^health: healthy \(asked just now\)$/);
+    assert.equal(await dot(fleet.systems[1].slug).getAttribute('data-word'), 'answers');
+    assert.equal(await dot(fleet.systems[2].slug).count(), 0);
+    const paint = (slug) => dot(slug).evaluate((one) => document.defaultView.getComputedStyle(one).backgroundColor);
+    assert.equal(await paint(fleet.systems[0].slug), 'rgb(0, 171, 98)');
+    assert.equal(await paint(fleet.systems[1].slug), 'rgb(214, 61, 61)');
+  });
+});
+
+test('a system\'s box says what it is made of, where it stands in each environment, what production runs, its state and two numbers', async () => {
+  const data = await dataWith((fleet) => {
+    Object.assign(fleet.systems[0], {
+      state: 'behind', behind: ['GitHub identity: a user\'s token', 'Private build: not yet'], madeOf: 'Container Apps', asleep: false,
+      environments: [{ name: 'tdd', tier: 'nonprod' }, { name: 'uat', tier: 'nonprod' }, { name: 'prod', tier: 'prod' }],
+      projects: [
+        { name: 'web', environments: [
+          { name: 'tdd', release: '2.4.43', state: 'Success', finished: '2026-10-07 04:28', url: '' },
+          { name: 'uat', release: '2.4.42', state: 'Success', finished: '2026-10-06 21:02', url: '' },
+          { name: 'prod', release: '2.4.42', state: 'Success', finished: '2026-10-07 02:10', url: '' },
+        ] },
+        { name: 'api', environments: [{ name: 'tdd', release: '1.0.7', state: 'Success', finished: '2026-10-07 01:00', url: '' }] },
+      ],
+      standards: [{ standard: 'tests', label: 'Tests', status: 'met', text: '' }, { standard: 'build', label: 'Private build', status: 'behind', text: '' }, { standard: 'idle', label: 'Idle cost', status: 'met', text: '' }],
+      cost: { monthToDate: '1.74', currency: 'USD' },
+    });
+    Object.assign(fleet.systems[1], { state: 'ok', behind: [], findings: [], asleep: false, cost: null, standards: [] });
+    delete fleet.systems[1].madeOf;
+    return fleet;
+  });
+  const fleet = JSON.parse(await readFile(join(data, 'fleet.json'), 'utf8'));
+  await withPage(data, SOON_AFTER, async (page, complaints) => {
+    const box = page.locator(`#landscape .entity[data-box="${fleet.systems[0].slug}"]`);
+    assert.equal(await box.locator('.made').textContent(), 'Container Apps');
+    assert.deepEqual(await box.locator('.env').evaluateAll((all) => all.map((one) => [one.textContent, one.className, one.getAttribute('title')])), [
+      ['tdd', 'env same', 'tdd: deployed'], ['uat', 'env behind', 'uat: deployed, behind tdd'], ['prod', 'env behind', 'prod: deployed, behind tdd'],
+    ]);
+    assert.equal(await box.locator('.runs').textContent(), 'prod 2.4.42 · 3 h');
+    assert.equal(await box.locator('.says').textContent(), 'Behind the standard: 2 standards');
+    assert.equal(await box.locator('.small').textContent(), '2 of 3 standards · 1.74 USD');
+    const tile = (kind) => box.locator(`.env.${kind} i`).first().evaluate((one) => document.defaultView.getComputedStyle(one).backgroundColor);
+    assert.equal(await tile('same'), 'rgb(0, 171, 98)');
+    assert.equal(await tile('behind'), 'rgb(245, 141, 58)');
+    // A system as declared says nothing about its state, and a line the fleet read nothing for is not drawn.
+    const quiet = page.locator(`#landscape .entity[data-box="${fleet.systems[1].slug}"]`);
+    assert.deepEqual([await quiet.locator('.says').count(), await quiet.locator('.made').count(), await quiet.locator('.small').count()], [0, 0, 0]);
+    assert.deepEqual(complaints, []);
   });
 });
 
