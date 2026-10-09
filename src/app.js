@@ -2,8 +2,8 @@
 // each thing means is decided in model.js; this file only puts it on the page.
 import { initZoom, openFromAddress } from './zoom.js';
 import {
-  STATE_WORDS, asked, azureLinks, behindReasons, boxLinks, boxTitle, counts, deploymentMarks, displayState, flightState, fleetFacts, formatAge, formatWhen, healthWord, landscape, limitShare, limitsInUse,
-  matches, observed, releaseGrid, releaseWord, serviceState, standing, standingSummary, systemDoor, systemLink, withoutSlug,
+  STATE_WORDS, activityLines, asked, azureLinks, behindReasons, boxLinks, boxTitle, cellFlights, cellKey, cellTitle, cellWhen, counts, displayState, flightMarks, flightState, flightWord, fleetFacts, formatAge, healthWord,
+  isStale, landscape, limitShare, limitsInUse, liveMarks, matches, observed, releaseGrid, releaseWord, serviceState, standing, standingSummary, systemDoor, systemLink, tileFlights, withoutSlug,
 } from './model.js';
 
 const RELOAD_MINUTES = 5;
@@ -51,14 +51,18 @@ function drawFacts(data, facts) {
 }
 
 // What a system's box says beyond its name: what it is made of, where it stands in each environment, what production
-// runs, its state in words, two numbers, and whether it follows the kit. A line the fleet read nothing for is left out.
+// runs, what is happening there, its state in words, two numbers, and whether it follows the kit. A line the fleet
+// read nothing for is left out. The activity of a system is filled in by drawActivity, every minute; that of the
+// Octopus instance is a line of the fleet's own reading.
 function drawBoxFacts(box) {
   const line = (kind, text) => (text ? el('span', { class: kind, text }) : null);
-  const tiles = (box.tiles || []).map((tile) => el('span', { class: `env ${tile.kind}`, title: tile.word }, [el('i', { role: 'img', 'aria-label': tile.word }), el('span', { text: tile.name })]));
+  const tiles = (box.tiles || []).map((tile) => el('span', { class: `env ${tile.kind}`, title: tile.word, 'data-env': tile.name, 'data-stands': tile.word }, [el('i', { role: 'img', 'aria-label': tile.word }), el('span', { text: tile.name })]));
+  const acts = Array.isArray(box.tiles) ? el('span', { class: 'acts', hidden: 'hidden' })
+    : box.acts ? el('span', { class: 'acts' }, [el('span', { class: 'act act-instance num', title: 'As the fleet read it from Octopus', text: box.acts })]) : null;
   return [
     line('made', box.madeOf),
     tiles.length ? el('span', { class: 'envs' }, tiles) : null,
-    line('runs num', box.runs), line('says', box.says), line('small num', box.small),
+    line('runs num', box.runs), acts, line('says', box.says), line('small num', box.small),
     line('chip', box.pulls ? 'pulls the standard' : ''),
   ];
 }
@@ -124,11 +128,11 @@ function drawReleases(system) {
   for (const row of grid.rows) {
     table.append(el('tr', {}, [
       el('td', { class: 'project' }, [el('span', { class: 'cell' }, [el('span', { class: 'icon', 'aria-hidden': 'true' }), el('span', { class: 'what', text: row.project })])]),
-      ...row.cells.map((cell) => el('td', { class: `rel ${cell.kind}`, title: cell.finished ? `finished ${cell.finished} UTC` : '' }, [el('span', { class: 'cell' }, [
-        el('span', { class: 'status', role: 'img', 'aria-label': releaseWord(cell, grid.names[0]) }),
+      ...row.cells.map((cell) => el('td', { class: `rel ${cell.kind}`, title: cellTitle(cell), 'data-cell': cellKey(row.project, cell.name) }, [el('span', { class: 'cell' }, [
+        el('span', { class: 'status', role: 'img', 'aria-label': releaseWord(cell, grid.names[0]), 'data-stands': releaseWord(cell, grid.names[0]) }),
         el('span', { class: 'release' }, [
           cell.url ? el('a', { class: 'num', href: cell.url, text: cell.text }) : el('span', { class: 'num', text: cell.text }),
-          cell.finished ? el('span', { class: 'when', text: formatWhen(cell.finished) }) : null,
+          cellWhen(cell) ? el('span', { class: 'when', text: cellWhen(cell) }) : null,
         ]),
       ])])),
     ]));
@@ -334,20 +338,55 @@ function drawBadge(slug, state, text) {
   box.append(el('span', { class: `flight ${state}`, role: 'img', 'aria-label': text, title: text }));
 }
 
+// What happens in a system, on its box: at most two lines under what production runs, and each environment's tile in
+// the colour of flight while something is deploying or waiting there. The box is a link itself, so a line is text
+// with the whole of it, and where it comes from, as its title.
+function drawActivity(system, marks, now, stale) {
+  const box = document.querySelector(`#landscape .entity[data-box="${system.slug}"]`);
+  const acts = box?.querySelector('.acts');
+  if (!acts) return;
+  const said = activityLines(system, marks, now, stale);
+  acts.replaceChildren(...said.lines.map((line) => el('span', { class: `act ${line.kind.split(' ').map((kind) => `act-${kind}`).join(' ')}`, title: line.title, 'data-source': line.source, text: line.text })));
+  acts.hidden = said.lines.length === 0;
+  const flying = tileFlights(marks);
+  for (const tile of box.querySelectorAll('.env[data-env]')) {
+    const state = flying[tile.dataset.env.toLowerCase()];
+    const word = state ? flightWord(tile.dataset.env, state) : tile.dataset.stands;
+    if (state) tile.dataset.flight = state; else delete tile.dataset.flight;
+    tile.title = word;
+    tile.querySelector('i').setAttribute('aria-label', word);
+  }
+}
+
+// The same on the card's grid: the tile of a project that is deploying or waiting in an environment.
+function drawCellFlights(tile, marks) {
+  const flying = cellFlights(marks);
+  for (const cell of tile.querySelectorAll('td.rel[data-cell]')) {
+    const flight = flying[cell.dataset.cell];
+    const status = cell.querySelector('.status');
+    if (flight) cell.dataset.flight = flight; else delete cell.dataset.flight;
+    status.setAttribute('aria-label', flight ? flightWord(cell.dataset.cell, flight) : status.dataset.stands);
+  }
+}
+
 function drawFlights(now) {
   let deploying = 0;
+  const stale = isStale(last?.data.generated, now);
   for (const system of last?.data.systems || []) {
-    const marks = deploymentMarks(flights.get(system.slug), now);
-    const state = flightState(marks);
-    if (state && state !== 'finished') deploying += 1;
+    const marks = flightMarks(system, flights.get(system.slug), now, stale);
+    const live = marks.filter((mark) => !mark.past);
+    const state = flightState(live);
+    if (liveMarks(marks).length) deploying += 1;
     const tile = document.querySelector(`article.tile[data-system="${system.slug}"]`);
     const list = tile?.querySelector('.flights');
     if (list) {
-      list.replaceChildren(...marks.map((mark) => el('li', { class: mark.state }, [mark.url ? el('a', { href: mark.url, text: mark.text }) : mark.text])));
+      list.replaceChildren(...marks.map((mark) => el('li', { class: mark.past ? 'earlier' : mark.state, 'data-source': mark.source }, [mark.url ? el('a', { href: mark.url, text: mark.text }) : mark.text])));
       list.hidden = marks.length === 0;
       if (state) tile.dataset.deploying = state; else delete tile.dataset.deploying;
+      drawCellFlights(tile, marks);
     }
-    drawBadge(system.slug, state, marks.map((mark) => mark.text).join('; '));
+    drawBadge(system.slug, state, live.map((mark) => mark.text).join('; '));
+    drawActivity(system, marks, now, stale);
   }
   const fact = byId('fact-deploying');
   if (fact) {
