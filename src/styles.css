@@ -7,8 +7,8 @@ html { color-scheme: dark; }
 body { margin: 0; }
 [hidden] { display: none !important; }
 img, svg { max-width: 100%; }
-/* Layout: a bar with the logo and the fleet's name, the sections of the page beside it, then the fleet's counts, one
-   card per system with what each of its projects runs in each environment, the landscape, and what every system
+/* Layout: a bar with the logo and the fleet's name, the sections of the page beside it, then the fleet's counts, the
+   landscape, one card per system with what each of its projects runs in each environment, and what every system
    shares. A deployment that succeeded wears Octopus's green tile. A system's state keeps its own colours: none for
    as declared, orange for what stopped working, yellow for behind the standard, red where production is affected. */
 :root {
@@ -159,25 +159,37 @@ table.standards tr[data-status="broken"] td.stands { color: var(--attn); }
 table.standards tr[data-status="critical"] td.stands { color: var(--crit); }
 table.standards tr[data-status="met"] td.stands { color: var(--ok); font-weight: 400; }
 
-/* The landscape is the fleet's own drawing; its boxes take Clear Measure's blue and the state of what they stand for. */
-.map-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
-.map-scroll svg { display: block; width: 100%; min-width: 980px; height: auto; }
-.map svg g.cluster > rect { fill: var(--side) !important; stroke: var(--line-strong) !important; }
-.map svg g.cluster text { fill: var(--muted) !important; }
-.map svg g.entity > rect, .map svg g.entity a > rect { fill: var(--box) !important; stroke: var(--line-strong) !important; }
-.map svg g.entity[data-state="attention"] rect { stroke: var(--attn) !important; stroke-width: 7px !important; }
-.map svg g.entity[data-state="behind"] rect { stroke: var(--behind) !important; stroke-width: 5px !important; }
-.map svg g.entity[data-state="critical"] rect { stroke: var(--crit-fill) !important; stroke-width: 9px !important; }
-.map svg g.entity[data-state="not-read"] rect { stroke: var(--ink) !important; stroke-width: 3px !important; stroke-dasharray: 9 6; }
-.map svg g.entity[data-state="asleep"] rect { fill: var(--line) !important; stroke-dasharray: 3 5; }
-.map svg g.entity[data-zoom] { cursor: zoom-in; }
-.map svg g[data-open] { cursor: pointer; }
-.map svg g.entity[data-zoom]:hover rect, .map svg g.entity[data-open]:hover > rect { filter: brightness(1.3); }
-.map svg g.cluster[data-open]:hover > rect { stroke: var(--cm-primary) !important; }
-.map svg g[data-open]:focus-visible { outline: 2px solid var(--cm-primary); outline-offset: 3px; }
-.map svg g.link text { fill: var(--muted) !important; }
-.map svg g.link path, .map svg g.link polygon { stroke: var(--line-strong) !important; }
-.map svg g.link polygon { fill: var(--line-strong) !important; }
+/* The landscape: who watches, the fleet's oversight, the subscription with every system in it, and what the systems
+   share. It is drawn by the page from the fleet's data, as boxes that wrap to the width they have, so it is never
+   wider than the screen. Boxes are Clear Measure's navy; what the systems share is its deep navy; the frame of the
+   subscription and the arrows are its primary blue. A box's edge takes the state of what it stands for. */
+.scape { display: grid; gap: 10px; }
+.scape-row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px 14px; }
+.scape-row > .entity { flex: 1 1 220px; max-width: 420px; }
+.scape-rels { display: flex; flex-wrap: wrap; gap: 4px 36px; padding-inline: 18px; }
+.rel { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: .86rem; }
+.rel.right { align-self: center; }
+.rel .arrow { color: var(--cm-primary); font-size: .8rem; line-height: 1; }
+.entity { position: relative; display: grid; gap: 4px; align-content: start; justify-items: center; text-align: center; min-width: 0; padding: 12px 14px 14px; border: 2px solid var(--cm-primary); border-radius: var(--radius); background: var(--box); color: var(--box-ink); }
+a.entity:hover { text-decoration: none; filter: brightness(1.25); }
+a.entity:focus-visible, a.cluster-name:focus-visible { outline: 3px solid var(--cm-light-blue); outline-offset: 2px; }
+.entity b { font-family: var(--display); font-size: 1.1rem; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
+.entity .what { font-size: .84rem; color: var(--cm-light-blue); overflow-wrap: anywhere; }
+.entity .chip { margin-top: 2px; padding: 1px 8px; border: 1px solid var(--cm-primary); border-radius: 10px; font-size: .72rem; color: var(--cm-light-blue); }
+.entity.external { background: var(--cm-deep); border-color: var(--line-strong); }
+.entity.person { background: var(--cm-primary); border-color: var(--cm-primary); }
+.entity.person .what { color: #ffffff; }
+.entity[data-state="attention"] { border: 4px solid var(--attn); }
+.entity[data-state="behind"] { border: 3px solid var(--behind); }
+.entity[data-state="critical"] { border: 5px solid var(--crit-fill); }
+.entity[data-state="not-read"] { border: 2px dashed var(--ink); }
+.entity[data-state="asleep"] { background: var(--line); border: 2px dotted var(--line-strong); }
+.entity[data-zoom] { cursor: zoom-in; }
+.cluster { display: grid; gap: 12px; padding: 12px 14px 14px; border: 2px dashed var(--cm-primary); border-radius: var(--radius); }
+.cluster header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.cluster-name { font-family: var(--display); font-weight: 700; font-size: 1.05rem; color: var(--ink); }
+.cluster header .what { color: var(--muted); font-size: .86rem; }
+.scape-systems { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: 12px; }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 22px; color: var(--muted); font-size: .85rem; }
 .key { display: inline-flex; align-items: center; gap: 8px; }
 .swatch { width: 26px; height: 14px; background: var(--box); border: 1px solid var(--line-strong); border-radius: 2px; }
@@ -210,11 +222,11 @@ footer p { margin: 0 0 6px; }
 /* A deployment in flight: its own colour, which is not one of health. Running pulses, queued is hollow, waiting for
    a person is ringed, and what just ended is small and still. */
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
-.map svg circle.flight { fill: var(--flight); stroke: var(--bg); stroke-width: 2px; }
-.map svg circle.flight.executing { animation: pulse 1.2s ease-in-out infinite; }
-.map svg circle.flight.queued { fill: var(--bg); stroke: var(--flight); stroke-width: 4px; }
-.map svg circle.flight.waiting { stroke: var(--flight); stroke-width: 6px; fill: var(--bg); }
-.map svg circle.flight.finished { r: 5px; }
+.entity .flight { position: absolute; top: 6px; right: 6px; width: 14px; height: 14px; border-radius: 50%; background: var(--flight); border: 2px solid var(--bg); }
+.entity .flight.executing { animation: pulse 1.2s ease-in-out infinite; }
+.entity .flight.queued { background: var(--bg); border: 3px solid var(--flight); }
+.entity .flight.waiting { background: var(--bg); border: 4px double var(--flight); }
+.entity .flight.finished { width: 9px; height: 9px; }
 .flights li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: baseline; font-size: .93rem; overflow-wrap: anywhere; }
 .flights li::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--flight); }
 .flights li.executing::before { animation: pulse 1.2s ease-in-out infinite; }
@@ -224,7 +236,7 @@ footer p { margin: 0 0 6px; }
 .flights li.succeeded::before, .flights li.failed::before, .flights li.canceled::before { width: 6px; height: 6px; margin: 2px; }
 .flights li.failed { color: var(--crit); }
 .flights li.failed::before { background: var(--crit-fill); }
-@media (prefers-reduced-motion: reduce) { .map svg circle.flight.executing, .flights li.executing::before { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .entity .flight.executing, .flights li.executing::before { animation: none; } }
 
 /* Zoomed into one system: its dashboard over the whole screen, inside the fleet's page. */
 .zoom { position: fixed; inset: 0; z-index: 10; display: grid; grid-template-rows: auto minmax(0, 1fr); background: var(--bg); transform-origin: 0 0; will-change: transform, opacity; }
@@ -241,6 +253,11 @@ body[data-zoomed] .wall { visibility: hidden; }
 /* A narrow screen has no room for the sections beside the page: the bar and the page are enough. */
 @media (max-width: 1000px) {
   .shell { grid-template-columns: minmax(0, 1fr); background: none; }
+  /* The counts take little room, so the landscape is on the first screen of a phone too. */
+  .facts { grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 8px; }
+  .fact { padding: 8px 10px; }
+  .fact b { font-size: 1.25rem; }
+  .fact span { font-size: .7rem; }
   .side { display: none; }
   .topbar { position: static; }
 }

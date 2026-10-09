@@ -8,7 +8,8 @@ The fleet is declared and overseen in
 `fleet` writes what it finds every six hours and publishes it:
 [fleet.json](https://clearmeasure-aisf-sample-apps.github.io/demo-environment-kit/fleet.json) and
 [landscape.svg](https://clearmeasure-aisf-sample-apps.github.io/demo-environment-kit/landscape.svg). This page reads
-those two files in the reader's browser and draws them. Nothing is pushed into this repository, and the page has no
+`fleet.json` in the reader's browser and draws it; the landscape too is drawn from it (below), and the fleet's own C4
+drawing is linked under it. Nothing is pushed into this repository, and the page has no
 server of its own.
 
 ## How it looks, and why
@@ -53,6 +54,23 @@ There is one theme, the dark one of the screen it mimics.
 
 The box in the bar finds systems by what is typed: a system's name, what it is, its owner or one of its projects.
 The sections beside the page scroll to their part of it; on a narrow screen they are left out.
+
+## The landscape
+
+The landscape is the first thing on the page (Jeffrey Palermo, 2026-10-09: "the landscape section should be first so
+that the first thing I see is the pictorial shape of the different systems in the fleet"): who watches, the fleet's
+oversight, the Azure subscription with every system in it, and below it what the systems share: Octopus Deploy, the
+policies it reads, and the delivery standard.
+
+The page draws it itself, from `fleet.json`, as boxes that wrap to the width of the screen. Until 1.0.33 it showed
+the fleet's C4 drawing, which is 1,665 pixels wide whatever the screen and had to be scrolled sideways on a tablet;
+PlantUML could not lay the same picture out narrower than about 1,270. Drawn here, it takes one row of systems on a
+wide screen and as many rows as it needs on a narrow one, in the page's own colours and type: Clear Measure's navy
+for a system, its deep navy for what the systems share, its primary blue for the operators, the frame of the
+subscription and the arrows. A box's edge is the state of what it stands for, as the legend under it says. A system
+that follows the kit's templates says "pulls the standard". The arrows of the C4 drawing became five sentences
+between the rows, because ten arrows that all end in the same two boxes say less than "every system is released by
+Octopus Deploy".
 
 No box of the landscape does nothing (Jeffrey Palermo, 2026-10-08: "whatever the box represents I want to be able to
 click and zoom into the view of that resource"). Octopus Deploy opens the instance, the delivery standard and the

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  AZURE_PORTAL, azureLinks, boxLinks, hostOf,
+  AZURE_PORTAL, azureLinks, boxLinks, boxTitle, hostOf, landscape,
   FINISHED_MINUTES, STALE_AFTER_HOURS, ageHours, asked, behindReasons, counts, deploymentMarks, deploymentText, flightState, deploymentWord, displayState, findText, fleetFacts, formatAge, formatWhen,
   healthWord, isStale, limitShare, limitsInUse, matches, observed, parseUtc, prodEnvironments, prodRows, releaseGrid, releaseWord, serviceState, standing,
   standingSummary, systemDoor, systemLink, withoutSlug,
@@ -320,4 +320,43 @@ test('a system leads to each of its resource groups in the portal, or to the sub
   assert.deepEqual(azureLinks(system({ azure: [{ group: 'rg-demo-prod', url: '' }] }), fleet), [{ text: 'Azure subscription', url: fleet.azurePortal }]);
   assert.deepEqual(azureLinks(system(), {}), []);
   assert.deepEqual(azureLinks(system(), undefined), []);
+});
+
+test('the landscape is who watches, the oversight, every system in the subscription and what they share', () => {
+  const data = {
+    fleet: { name: 'Acme systems', repository: 'acme/kit', octopus: 'https://acme.octopus.app', policies: 'acme/policies' },
+    systems: [
+      system({ slug: 'one', name: 'System one', state: 'attention', kitBuilt: true, runtimeView: 'https://one.example/#runtime/prod', dashboard: 'https://one.example/' }),
+      system({ slug: 'two', name: 'System two', state: 'ok', kitBuilt: false, space: { url: 'https://acme.octopus.app/app#/Spaces-2' } }),
+      system({ slug: 'three', state: 'behind', kitBuilt: true, asleep: true }),
+    ],
+    shared: { services: [{ id: 'octopus', name: 'Octopus Deploy', state: 'ok', detail: '4 of 20 tasks' }, { id: 'kit', name: 'Delivery standard', state: 'attention' }] },
+  };
+  const scape = landscape(data, false);
+  assert.deepEqual(scape.systems, [
+    { name: 'one', title: 'one', text: 'System one', state: 'attention', zoom: 'https://one.example/#runtime/prod', open: '', pulls: true },
+    { name: 'two', title: 'two', text: 'System two', state: 'ok', zoom: '', open: 'https://acme.octopus.app/app#/Spaces-2', pulls: false },
+    { name: 'three', title: 'three', text: 'A demo system', state: 'behind', zoom: '', open: '', pulls: true },
+  ]);
+  assert.equal(scape.pulling, 2);
+  assert.deepEqual(scape.services, [
+    { name: 'octopus', title: 'Octopus Deploy', text: '4 of 20 tasks', state: 'ok', zoom: '', open: 'https://acme.octopus.app' },
+    { name: 'kit', title: 'Delivery standard', text: '', state: 'attention', zoom: '', open: 'https://github.com/acme/kit/tree/green' },
+  ]);
+  assert.equal(scape.fleet.title, 'Acme systems');
+  assert.equal(scape.fleet.open, 'https://github.com/acme/kit/tree/main/fleet');
+  assert.match(scape.operators.open, /label%3Afleet-finding$/);
+  assert.equal(scape.subscription.open, AZURE_PORTAL);
+  // Old data is not read, whatever it said.
+  assert.deepEqual(landscape(data, true).systems.map((one) => one.state), ['not-read', 'not-read', 'not-read']);
+  assert.deepEqual(landscape(data, true).services.map((one) => one.state), ['not-read', 'not-read']);
+  // Data with nothing in it still draws the frame.
+  const bare = landscape({ systems: [] }, false);
+  assert.deepEqual([bare.systems.length, bare.services.length, bare.pulling, bare.fleet.title, bare.fleet.open], [0, 0, 0, 'The fleet', '']);
+
+  assert.equal(boxTitle(scape.systems[0]), 'one: Needs attention. Zooms into its dashboard');
+  assert.equal(boxTitle(scape.systems[1]), 'two: As declared. Opens acme.octopus.app in a new tab');
+  assert.equal(boxTitle(scape.systems[2]), 'three: Behind the standard');
+  assert.equal(boxTitle(scape.operators), 'Operators. Opens github.com in a new tab');
+  assert.equal(boxTitle({ title: 'Nothing' }), 'Nothing');
 });

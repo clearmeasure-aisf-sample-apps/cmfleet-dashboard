@@ -77,10 +77,10 @@ test('fresh data: every system has a tile, the landscape carries the states, and
     for (const system of expected.systems) {
       const wanted = system.state === 'unknown' ? 'not-read' : system.state;
       assert.equal(await tile(page, system.slug).getAttribute('data-state'), wanted, system.slug);
-      assert.equal(await page.locator(`#landscape g.entity[data-qualified-name$=".${system.slug}"]`).getAttribute('data-state'), wanted, `${system.slug} in the landscape`);
+      assert.equal(await page.locator(`#landscape .entity[data-box="${system.slug}"]`).getAttribute('data-state'), wanted, `${system.slug} in the landscape`);
     }
     assert.equal(await page.locator('#services .service').count(), expected.shared.services.length);
-    assert.equal(await page.locator('#landscape g.entity[data-qualified-name="octopus"]').getAttribute('data-state'), 'ok');
+    assert.equal(await page.locator('#landscape .entity[data-box="octopus"]').getAttribute('data-state'), 'ok');
     assert.equal(await page.locator('#problem').isHidden(), true);
     assert.deepEqual(complaints, []);
   });
@@ -114,7 +114,7 @@ test('a system that is behind the standard is yellow and says why on its face; w
     assert.equal(await yellow.locator('ul.behind li').first().isVisible(), true);
     assert.equal(await yellow.locator('.standing').textContent(), 'Standards: 1 gap · 1 behind · 1 not checked · 1 met');
     assert.equal(await yellow.locator('.asks li').count(), 0);
-    assert.equal(await page.locator(`#landscape g.entity[data-qualified-name$=".${fleet.systems[0].slug}"]`).getAttribute('data-state'), 'behind');
+    assert.equal(await page.locator(`#landscape .entity[data-box="${fleet.systems[0].slug}"]`).getAttribute('data-state'), 'behind');
     assert.equal(await yellow.locator('table.standards').isVisible(), false);
     await yellow.locator('summary').click();
     assert.deepEqual(await yellow.locator('table.standards tr[data-status]').evaluateAll((rows) => rows.map((row) => [...row.cells].slice(0, 2).map((cell) => cell.textContent))), [
@@ -139,7 +139,7 @@ test('a failure in production is red on the tile, in the landscape and in the co
     assert.equal(await tile(page, 'jpcom').getAttribute('data-state'), 'critical');
     assert.equal(await tile(page, 'jpcom').locator('.pill').textContent(), 'Production affected');
     assert.equal(await tile(page, 'jpcom').locator('.asks li.critical').textContent(), 'jpcom-web 1.0.29 in prod: Failed');
-    assert.equal(await page.locator('#landscape g.entity[data-qualified-name$=".jpcom"]').getAttribute('data-state'), 'critical');
+    assert.equal(await page.locator('#landscape .entity[data-box="jpcom"]').getAttribute('data-state'), 'critical');
     assert.equal(await page.locator('#facts .fact.crit b').textContent(), '1');
   });
 });
@@ -177,13 +177,57 @@ test('data that cannot be read: the page says so and claims nothing', async () =
   });
 });
 
-test('a missing landscape does not take the systems with it', async () => {
+test('the landscape is drawn from the fleet\'s data: it comes first, and the fleet\'s drawing file is not needed for it', async () => {
   const data = await dataWith();
   await rm(join(data, 'landscape.svg'));
-  await withPage(data, SOON_AFTER, async (page) => {
-    assert.match(await page.locator('#problem').textContent(), /The landscape could not be read/);
-    assert.ok(await page.locator('article.tile').count() > 0);
+  const fleet = JSON.parse(await readFile(join(data, 'fleet.json'), 'utf8'));
+  await withPage(data, SOON_AFTER, async (page, complaints) => {
+    assert.equal(await page.locator('#problem').isHidden(), true);
+    assert.equal(await page.locator('#landscape .scape-systems .entity').count(), fleet.systems.length);
+    assert.deepEqual(await page.locator('#landscape .scape-systems .entity b').allTextContents(), fleet.systems.map((system) => system.slug));
+    assert.equal(await page.locator('#landscape .entity .chip').count(), fleet.systems.filter((system) => system.kitBuilt).length);
+    assert.deepEqual(await page.locator('#landscape .rel').allTextContents(), [
+      '▶reads the wall', '▼reads every system, and changes nothing', '▼every system is released by Octopus Deploy',
+      `▼${fleet.systems.filter((system) => system.kitBuilt).length} of ${fleet.systems.length} pull the delivery standard`, '▶reads, at every deployment',
+    ]);
+    assert.equal(await page.locator('#landscape .entity[data-box="octopus"] .what').textContent(), fleet.shared.services.find((service) => service.id === 'octopus').detail);
+    // First on the page: above the systems, and on the first screen.
+    const tops = await page.evaluate(() => ['map', 'systems', 'shared'].map((id) => document.getElementById(id).getBoundingClientRect().top));
+    assert.ok(tops[0] < tops[1] && tops[1] < tops[2], `the order of the sections: ${tops}`);
+    assert.ok(tops[0] < 1000, `the landscape starts on the first screen: ${tops[0]}`);
+    assert.equal(await page.locator('.side a.on').textContent(), 'Landscape');
+    assert.equal(await page.locator('#c4').getAttribute('href'), '/data/landscape.svg');
+    assert.deepEqual(complaints, []);
   });
+});
+
+test('the landscape is never wider than the screen: its boxes wrap', async () => {
+  const data = await dataWith();
+  const server = await serve({ site, data });
+  try {
+    for (const width of [400, 820, 1280, 1920]) {
+      const page = await newPage({ width, height: 900 });
+      await page.clock.setFixedTime(new Date(SOON_AFTER));
+      await page.goto(server.url);
+      await page.waitForSelector('body[data-ready="true"]');
+      const read = await page.evaluate(() => {
+        const boxes = [...document.querySelectorAll('#landscape .entity, #landscape .cluster')].map((box) => box.getBoundingClientRect());
+        return {
+          sideways: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+          outside: boxes.filter((box) => box.left < 0 || box.right > document.documentElement.clientWidth + 1).length,
+          rows: new Set([...document.querySelectorAll('#landscape .scape-systems .entity')].map((box) => Math.round(box.getBoundingClientRect().top))).size,
+        };
+      });
+      assert.equal(read.sideways, 0, `nothing scrolls sideways at ${width}`);
+      assert.equal(read.outside, 0, `every box is on the screen at ${width}`);
+      // One row where the screen is wide enough for all of them, more rows where it is not.
+      if (width >= 1920) assert.equal(read.rows, 1, `rows of systems at ${width}`);
+      if (width <= 820) assert.ok(read.rows > 1, `rows of systems at ${width}: ${read.rows}`);
+      await page.close();
+    }
+  } finally {
+    await server.close();
+  }
 });
 
 test('a system that names a health address is probed from the page', async () => {
@@ -216,7 +260,7 @@ test('the name of a system zooms into its runtime view, its dashboard when it na
     assert.equal(await third.locator('h3 a').getAttribute('href'), fleet.systems[2].space.url);
     assert.equal(await third.locator('h3 a').getAttribute('target'), '_blank');
     assert.equal(await third.locator('h3 a').getAttribute('data-zoom'), null);
-    assert.equal(await page.locator(`#landscape g.entity[data-box="${fleet.systems[2].slug}"]`).getAttribute('data-open'), fleet.systems[2].space.url);
+    assert.equal(await page.locator(`#landscape .entity[data-box="${fleet.systems[2].slug}"]`).getAttribute('data-open'), fleet.systems[2].space.url);
   });
 });
 
@@ -261,13 +305,13 @@ test('a deployment in flight is marked on the tile and on the box, from the file
       'web 2.4.43 waits for a sign-off in prod', 'deploying web 2.4.43 to uat', 'web 2.4.43 reached tdd 5 min ago',
     ]);
     assert.equal(await one.getAttribute('data-deploying'), 'waiting');
-    assert.equal(await page.locator(`#landscape g.entity[data-box="${fleet.systems[0].slug}"] circle.flight.waiting`).count(), 1);
+    assert.equal(await page.locator(`#landscape .entity[data-box="${fleet.systems[0].slug}"] .flight.waiting`).count(), 1);
     const two = tile(page, fleet.systems[1].slug);
     assert.deepEqual(await two.locator('.flights li').allTextContents(), ['web 2.4.43 is queued for prod']);
-    assert.equal(await page.locator(`#landscape g.entity[data-box="${fleet.systems[1].slug}"] circle.flight.queued`).count(), 1);
+    assert.equal(await page.locator(`#landscape .entity[data-box="${fleet.systems[1].slug}"] .flight.queued`).count(), 1);
     const three = tile(page, fleet.systems[2].slug);
     assert.equal(await three.locator('.flights').isHidden(), true);
-    assert.equal(await page.locator(`#landscape g.entity[data-box="${fleet.systems[2].slug}"] circle.flight`).count(), 0);
+    assert.equal(await page.locator(`#landscape .entity[data-box="${fleet.systems[2].slug}"] .flight`).count(), 0);
     assert.equal(await page.locator('#fact-deploying b').textContent(), '2');
     assert.deepEqual(complaints.filter((line) => !line.includes('404')), []);
   });
@@ -284,9 +328,9 @@ test('a click on a system zooms into its dashboard inside the fleet, and Fleet, 
   await withPage(data, SOON_AFTER, async (page) => {
     const zoomed = () => page.evaluate(() => document.body.dataset.zoomed || '');
     assert.equal(await page.locator('#zoom').isHidden(), true);
-    assert.equal(await page.locator(`#landscape g.entity[data-box="${second}"]`).getAttribute('data-zoom'), null);
+    assert.equal(await page.locator(`#landscape .entity[data-box="${second}"]`).getAttribute('data-zoom'), null);
 
-    await page.locator(`#landscape g.entity[data-zoom="${first}"] rect`).first().click();
+    await page.locator(`#landscape .entity[data-zoom="${first}"]`).click();
     await page.waitForFunction((slug) => document.body.dataset.zoomed === slug, first);
     assert.equal(await page.locator('#zoom').isVisible(), true);
     assert.match(await page.locator('#zoom-frame').getAttribute('src'), /\/health\.json\?view=runtime$/);
@@ -446,12 +490,14 @@ test('no box of the landscape does nothing: a system zooms in, every other box o
   const data = await dataWith();
   const fleet = JSON.parse(await readFile(join(data, 'fleet.json'), 'utf8'));
   await withPage(data, SOON_AFTER, async (page, complaints) => {
-    const boxes = await page.locator('#landscape g.entity, #landscape g.cluster').evaluateAll((all) => all.map((box) => [
-      box.getAttribute('data-qualified-name').split('.').pop(), box.dataset.zoom ? 'zooms' : box.dataset.open || '',
+    // Every box is a real link: a click, Enter and "open in a new tab" all work without a line of script.
+    const boxes = await page.locator('#landscape .entity, #landscape .cluster-name').evaluateAll((all) => all.map((box) => [
+      box.dataset.box || 'subscription', box.tagName, box.dataset.zoom ? 'zooms' : box.getAttribute('href') || '', box.getAttribute('target') || '', box.getAttribute('rel') || '',
     ]));
     const kit = `https://github.com/${fleet.fleet.repository}`;
-    const leads = Object.fromEntries(boxes);
-    assert.deepEqual(boxes.filter(([, where]) => !where), [], 'a box that leads nowhere');
+    const leads = Object.fromEntries(boxes.map(([name, , where]) => [name, where]));
+    assert.deepEqual(boxes.filter(([, tag, where]) => tag !== 'A' || !where), [], 'a box that leads nowhere');
+    assert.deepEqual(boxes.filter(([, , where, target, rel]) => where !== 'zooms' && (target !== '_blank' || rel !== 'noopener')), [], 'a box that opens in this tab');
     for (const system of fleet.systems) assert.equal(leads[system.slug], system.runtimeView || system.dashboard ? 'zooms' : system.space.url, system.slug);
     assert.equal(leads.octopus, fleet.fleet.octopus);
     assert.equal(leads.kit, `${kit}/tree/green`);
@@ -459,17 +505,10 @@ test('no box of the landscape does nothing: a system zooms in, every other box o
     assert.equal(leads.fleet, `${kit}/tree/main/fleet`);
     assert.match(leads.operators, /\/issues\?q=.*label%3Afleet-finding$/);
     assert.match(leads.subscription, /^https:\/\/portal\.azure\.com\//);
-    assert.match(await page.locator('#landscape g.entity[data-box="octopus"] > title').textContent(), /^Octopus Deploy: As declared\. Opens .+ in a new tab$/);
-
-    // The tests reach nothing outside this machine: what the page would open is written down instead.
-    await page.evaluate(() => { const view = document.defaultView; view.opened = []; view.open = (...asked) => { view.opened.push(asked); return null; }; });
-    await page.locator('#landscape g.entity[data-box="octopus"] rect').first().click();
-    await page.locator('#landscape g.cluster[data-box="subscription"]').focus();
-    await page.keyboard.press('Enter');
-    assert.deepEqual(await page.evaluate(() => document.defaultView.opened), [
-      [fleet.fleet.octopus, '_blank', 'noopener'], [leads.subscription, '_blank', 'noopener'],
-    ]);
-    assert.equal(await page.evaluate(() => document.body.dataset.zoomed || ''), '', 'a box that opens does not zoom');
+    assert.match(await page.locator('#landscape .entity[data-box="octopus"]').getAttribute('title'), /^Octopus Deploy: As declared\. Opens .+ in a new tab$/);
+    const zooming = fleet.systems.find((system) => system.runtimeView || system.dashboard);
+    assert.equal(await page.locator(`#landscape .entity[data-box="${zooming.slug}"]`).getAttribute('title'), `${zooming.slug}: ${await tile(page, zooming.slug).locator('.pill').textContent()}. Zooms into its dashboard`);
+    assert.equal(await page.evaluate(() => document.body.dataset.zoomed || ''), '');
     assert.deepEqual(await page.locator('#services .service b a').evaluateAll((all) => all.map((link) => link.getAttribute('href'))), [leads.octopus, leads.kit, leads.policies]);
     assert.deepEqual(complaints, []);
   });
@@ -492,7 +531,7 @@ test('a card leads to the system\'s resource groups in the portal, and the subsc
     ]);
     assert.deepEqual(await azure(fleet.systems[1].slug), [['Azure subscription', portal, '_blank']]);
     assert.deepEqual(await azure(fleet.systems[2].slug), [['Azure subscription', portal, '_blank']]);
-    assert.equal(await page.locator('#landscape g.cluster[data-box="subscription"]').getAttribute('data-open'), portal);
+    assert.equal(await page.locator('#landscape .cluster-name').getAttribute('href'), portal);
     assert.deepEqual(complaints, []);
   });
 });

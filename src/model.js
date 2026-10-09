@@ -257,6 +257,40 @@ export function systemDoor(system) {
   return system.space?.url || system.repositoryUrl || '';
 }
 
+// The landscape as the page draws it: who watches, the fleet's oversight, the subscription with every system in it,
+// and what the systems share. Each box says what it is, the state of what it stands for where it has one, and where
+// it leads: a system zooms into its own dashboard (zoom), everything else opens what it stands for (open).
+export function landscape(data, stale) {
+  const links = boxLinks(data);
+  const systems = data.systems.map((system) => ({
+    name: system.slug,
+    title: system.slug,
+    text: system.name || '',
+    state: displayState(system, stale),
+    zoom: systemLink(system),
+    open: systemLink(system) ? '' : systemDoor(system),
+    pulls: Boolean(system.kitBuilt),
+  }));
+  const services = (data.shared?.services || []).map((service) => ({
+    name: service.id, title: service.name, text: service.detail || '', state: serviceState(service, stale), zoom: '', open: links[service.id] || '',
+  }));
+  return {
+    operators: { name: 'operators', title: 'Operators', text: 'watch the fleet and act on what needs attention', zoom: '', open: links.operators || '' },
+    fleet: { name: 'fleet', title: data.fleet?.name || 'The fleet', text: 'Fleet oversight: the registry, the rules and the findings', zoom: '', open: links.fleet || '' },
+    subscription: { name: 'subscription', title: 'Azure subscription', text: 'where the systems run', open: links.subscription },
+    systems,
+    services,
+    pulling: systems.filter((system) => system.pulls).length,
+  };
+}
+
+// What a box says when the pointer rests on it: what it is, its state where it has one, and where a click leads.
+export function boxTitle(box) {
+  const state = box.state ? `${box.title}: ${STATE_WORDS[box.state]}` : box.title;
+  if (box.zoom) return `${state}. Zooms into its dashboard`;
+  return box.open ? `${state}. Opens ${hostOf(box.open)} in a new tab` : state;
+}
+
 // A title the fleet wrote starts with the system's name; on the system's own tile that is said already.
 export function withoutSlug(title, slug) {
   return title.startsWith(`${slug}: `) ? title.slice(slug.length + 2) : title;
