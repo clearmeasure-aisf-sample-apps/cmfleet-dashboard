@@ -2,13 +2,12 @@
 // each thing means is decided in model.js; this file only puts it on the page.
 import { initZoom, openFromAddress } from './zoom.js';
 import {
-  STATE_WORDS, asked, azureLinks, behindReasons, boxLinks, counts, deploymentMarks, displayState, flightState, fleetFacts, formatAge, formatWhen, healthWord, hostOf, limitShare, limitsInUse,
+  STATE_WORDS, asked, azureLinks, behindReasons, boxLinks, boxTitle, counts, deploymentMarks, displayState, flightState, fleetFacts, formatAge, formatWhen, healthWord, landscape, limitShare, limitsInUse,
   matches, observed, releaseGrid, releaseWord, serviceState, standing, standingSummary, systemDoor, systemLink, withoutSlug,
 } from './model.js';
 
 const RELOAD_MINUTES = 5;
 const FLIGHT_SECONDS = 60;
-const SVG = 'http://www.w3.org/2000/svg';
 const byId = (id) => document.getElementById(id);
 
 function el(tag, attributes = {}, children = []) {
@@ -27,12 +26,6 @@ async function readJson(url) {
   const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) throw new Error(`${url} answered ${response.status}`);
   return response.json();
-}
-
-async function readText(url) {
-  const response = await fetch(url, { cache: 'no-store' });
-  if (!response.ok) throw new Error(`${url} answered ${response.status}`);
-  return response.text();
 }
 
 function drawFacts(data, facts) {
@@ -57,56 +50,53 @@ function drawFacts(data, facts) {
   ])));
 }
 
-// A box that opens what it stands for beside this page, for the mouse and for the keyboard.
-function opens(box, name, url) {
-  box.setAttribute('data-open', url);
-  box.setAttribute('data-box', name);
-  box.setAttribute('role', 'link');
-  box.setAttribute('tabindex', '0');
-  const title = box.querySelector(':scope > title') || box.insertBefore(document.createElementNS(SVG, 'title'), box.firstChild);
-  title.textContent = [title.textContent, `Opens ${hostOf(url)} in a new tab`].filter(Boolean).join('. ');
+// One box of the landscape. A system's box is a link the zoom takes over; every other box is a plain link that
+// opens beside this page; a box that leads nowhere is not a link at all.
+function drawBox(box, kind) {
+  const href = box.zoom || box.open;
+  const attributes = { class: `entity ${kind}`, 'data-box': box.name, 'data-state': box.state || null, title: boxTitle(box) };
+  if (box.zoom) Object.assign(attributes, { href, 'data-zoom': box.name });
+  else if (box.open) Object.assign(attributes, { href, target: '_blank', rel: 'noopener', 'data-open': box.open });
+  return el(href ? 'a' : 'div', attributes, [
+    el('b', { text: box.title }),
+    box.text ? el('span', { class: 'what', text: box.text }) : null,
+    box.pulls ? el('span', { class: 'chip', text: 'pulls the standard' }) : null,
+  ]);
 }
 
-// Every box that is not a system, and the frame of the subscription, opens what it stands for.
-function openOthers(drawing, data) {
-  for (const [name, url] of Object.entries(boxLinks(data))) {
-    const box = [...drawing.querySelectorAll('g.entity, g.cluster')].find((one) => (one.getAttribute('data-qualified-name') || '') === name);
-    if (box) opens(box, name, url);
-  }
-}
+const drawRel = (text, direction) => el('span', { class: `rel ${direction}` }, [el('span', { class: 'arrow', 'aria-hidden': 'true', text: direction === 'down' ? '▼' : '▶' }), text]);
 
-// The landscape is the fleet's own drawing. Its boxes are found by name and take the state of what they stand for.
-function drawLandscape(svgText, data, facts) {
-  const parsed = new DOMParser().parseFromString(svgText, 'image/svg+xml').documentElement;
-  if (parsed.nodeName !== 'svg') throw new Error('the landscape is not an SVG drawing');
-  for (const unwanted of parsed.querySelectorAll('script, foreignObject')) unwanted.remove();
-  for (const name of ['style', 'width', 'height', 'preserveAspectRatio', 'zoomAndPan', 'contentStyleType']) parsed.removeAttribute(name);
-  parsed.setAttribute('role', 'img');
-  parsed.setAttribute('aria-label', 'System landscape of the fleet');
-  const mark = (name, state, label) => {
-    const box = [...parsed.querySelectorAll('g.entity')].find((entity) => {
-      const qualified = entity.getAttribute('data-qualified-name') || '';
-      return qualified === name || qualified.endsWith(`.${name}`);
-    });
-    if (!box) return null;
-    box.setAttribute('data-state', state);
-    box.setAttribute('data-box', name);
-    const title = document.createElementNS(SVG, 'title');
-    title.textContent = `${label}: ${STATE_WORDS[state]}`;
-    box.prepend(title);
-    return box;
-  };
-  // No box is left that does nothing. A system zooms into its runtime view or its dashboard; one that names neither
-  // opens its space in Octopus.
-  for (const system of data.systems) {
-    const box = mark(system.slug, displayState(system, facts.stale), system.slug);
-    if (!box) continue;
-    if (systemLink(system)) box.setAttribute('data-zoom', system.slug);
-    else if (systemDoor(system)) opens(box, system.slug, systemDoor(system));
-  }
-  for (const service of data.shared.services || []) mark(service.id, serviceState(service, facts.stale), service.name);
-  openOthers(parsed, data);
-  byId('landscape').replaceChildren(document.importNode(parsed, true));
+// The landscape is drawn here, from the fleet's data: boxes that wrap to the width of the page, in the page's own
+// colours and type. The fleet's C4 drawing of the same thing stays where the fleet publishes it.
+function drawLandscape(data, facts) {
+  const scape = landscape(data, facts.stale);
+  const frame = el('section', { class: 'cluster', 'data-box': 'subscription', 'aria-label': 'Azure subscription' }, [
+    el('header', {}, [
+      scape.subscription.open
+        ? el('a', { class: 'cluster-name', href: scape.subscription.open, target: '_blank', rel: 'noopener', 'data-open': scape.subscription.open, title: boxTitle(scape.subscription), text: scape.subscription.title })
+        : el('span', { class: 'cluster-name', text: scape.subscription.title }),
+      el('span', { class: 'what', text: scape.subscription.text }),
+    ]),
+    el('div', { class: 'scape-systems' }, scape.systems.map((system) => drawBox(system, 'system'))),
+  ]);
+  const service = (name) => scape.services.find((one) => one.name === name);
+  const others = scape.services.filter((one) => !['octopus', 'policies', 'kit'].includes(one.name));
+  byId('landscape').replaceChildren(el('div', { class: 'scape', role: 'group', 'aria-label': 'System landscape of the fleet' }, [
+    el('div', { class: 'scape-row' }, [drawBox(scape.operators, 'person'), drawRel('reads the wall', 'right'), drawBox(scape.fleet, 'system')]),
+    el('div', { class: 'scape-rels' }, [drawRel('reads every system, and changes nothing', 'down')]),
+    frame,
+    el('div', { class: 'scape-rels' }, [
+      drawRel('every system is released by Octopus Deploy', 'down'),
+      drawRel(`${scape.pulling} of ${scape.systems.length} pull the delivery standard`, 'down'),
+    ]),
+    el('div', { class: 'scape-row shared-row' }, [
+      service('octopus') ? drawBox(service('octopus'), 'external') : null,
+      service('octopus') && service('policies') ? drawRel('reads, at every deployment', 'right') : null,
+      service('policies') ? drawBox(service('policies'), 'external') : null,
+      service('kit') ? drawBox(service('kit'), 'external') : null,
+      ...others.map((one) => drawBox(one, 'external')),
+    ]),
+  ]));
 }
 
 const titles = (findings, slug) => el('ul', {}, findings.map((finding) => el('li', { text: withoutSlug(finding.title, slug) })));
@@ -247,6 +237,7 @@ function drawDoors(data) {
   door('open-kit', kit);
   door('nav-kit', kit);
   door('nav-data', `${config.dataUrl}fleet.json`);
+  door('c4', `${config.dataUrl}${data.landscape || 'landscape.svg'}`);
 }
 
 // What the reader typed in the bar: the systems that have it in their name, in what they are or in a project's name.
@@ -314,23 +305,12 @@ const flights = new Map();
 // A dot on the system's box in the landscape: filled and pulsing while something runs, hollow while it waits its
 // turn, ringed while it waits for a person, small and still for what just ended.
 function drawBadge(slug, state, text) {
-  const box = document.querySelector(`#landscape g.entity[data-box="${slug}"]`);
+  const box = document.querySelector(`#landscape .entity[data-box="${slug}"]`);
   if (!box) return;
   box.querySelector('.flight')?.remove();
   if (!state) { box.removeAttribute('data-deploying'); return; }
   box.setAttribute('data-deploying', state);
-  const rect = box.querySelector('rect');
-  if (!rect) return;
-  const { x, y, width } = rect.getBBox();
-  const badge = document.createElementNS(SVG, 'circle');
-  badge.setAttribute('class', `flight ${state}`);
-  badge.setAttribute('cx', String(x + width - 16));
-  badge.setAttribute('cy', String(y + 16));
-  badge.setAttribute('r', '9');
-  const title = document.createElementNS(SVG, 'title');
-  title.textContent = text;
-  badge.append(title);
-  box.append(badge);
+  box.append(el('span', { class: `flight ${state}`, role: 'img', 'aria-label': text, title: text }));
 }
 
 function drawFlights(now) {
@@ -368,7 +348,7 @@ function draw(now) {
   if (!last) return;
   const facts = fleetFacts(last.data, now);
   drawFacts(last.data, facts);
-  if (last.svg) drawLandscape(last.svg, last.data, facts);
+  drawLandscape(last.data, facts);
   byId('tiles').replaceChildren(...last.data.systems.map((system) => drawTile(system, facts, last.data.fleet)));
   find();
   drawShared(last.data, facts);
@@ -382,10 +362,8 @@ async function load() {
   try {
     config ??= await readJson('config.json');
     const data = await readJson(`${config.dataUrl}fleet.json`);
-    let svg = '';
-    try { svg = await readText(`${config.dataUrl}${data.landscape || 'landscape.svg'}`); } catch { svg = ''; }
-    last = { data, svg };
-    problem(svg ? '' : 'The landscape could not be read; the systems below are as the fleet last wrote them.');
+    last = { data };
+    problem('');
   } catch (error) {
     problem(last
       ? `The fleet's data could not be read just now (${error.message}). What is shown is the last reading this page has.`
@@ -401,17 +379,6 @@ initZoom((slug) => {
   const system = last?.data.systems.find((one) => one.slug === slug);
   return system && systemLink(system) ? { name: system.slug, url: systemLink(system) } : null;
 });
-// A box of the landscape that is not a system opens what it stands for, beside this page: with a click, or with Enter
-// when the keyboard is on it.
-function openBox(event) {
-  if (event.type === 'keydown' && event.key !== 'Enter') return;
-  const box = event.target.closest?.('[data-open]');
-  if (!box) return;
-  event.preventDefault();
-  window.open(box.dataset.open, '_blank', 'noopener');
-}
-byId('landscape').addEventListener('click', openBox);
-byId('landscape').addEventListener('keydown', openBox);
 byId('find').addEventListener('input', find);
 // The sections beside the page scroll to their part of it. The address is left alone: after "#" it names the system
 // that is zoomed into.

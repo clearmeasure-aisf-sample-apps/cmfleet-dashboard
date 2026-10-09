@@ -22,8 +22,8 @@
 <div class="shell">
   <nav class="side" aria-label="Sections of this page">
     <h2>Fleet</h2>
-    <a href="#systems" data-go="systems" class="on">Systems</a>
-    <a href="#map" data-go="map">Landscape</a>
+    <a href="#map" data-go="map" class="on">Landscape</a>
+    <a href="#systems" data-go="systems">Systems</a>
     <a href="#shared" data-go="shared">Shared services</a>
     <a href="#limits" data-go="limits">Limits</a>
     <h2>Elsewhere</h2>
@@ -46,17 +46,9 @@
     <div class="facts" id="facts"></div>
     <div class="problem" id="problem" role="status" hidden></div>
 
-    <section aria-labelledby="sys-h" class="systems" id="systems">
-      <div class="section-head">
-        <h2 id="sys-h">Systems</h2>
-        <span class="shown" id="shown"></span>
-      </div>
-      <div class="tiles" id="tiles"></div>
-      <p class="unused" id="no-match" hidden>No system or project has that in its name.</p>
-    </section>
-
     <section class="map" aria-labelledby="map-h" id="map">
       <h2 id="map-h">Landscape</h2>
+      <div id="landscape"></div>
       <div class="legend">
         <span class="key"><span class="swatch"></span>as declared</span>
         <span class="key"><span class="swatch attention"></span>needs attention</span>
@@ -66,8 +58,17 @@
         <span class="key"><span class="swatch asleep"></span>asleep</span>
         <span class="key"><span class="swatch flight"></span>deploying</span>
         <span>Every box leads somewhere. A system's box zooms into its runtime view, or its dashboard where it names none; the others open what they stand for (Octopus, GitHub, Azure) in a new tab.</span>
+        <a id="c4" target="_blank" rel="noopener" hidden>The same as a C4 drawing</a>
       </div>
-      <div class="map-scroll" id="landscape"></div>
+    </section>
+
+    <section aria-labelledby="sys-h" class="systems" id="systems">
+      <div class="section-head">
+        <h2 id="sys-h">Systems</h2>
+        <span class="shown" id="shown"></span>
+      </div>
+      <div class="tiles" id="tiles"></div>
+      <p class="unused" id="no-match" hidden>No system or project has that in its name.</p>
     </section>
 
     <section class="shared" aria-labelledby="shared-h" id="shared">
