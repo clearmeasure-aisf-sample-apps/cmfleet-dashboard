@@ -186,7 +186,7 @@ test('the landscape is drawn from the fleet\'s data: it comes first, and the fle
     assert.equal(await page.locator('#landscape .scape-systems .entity').count(), fleet.systems.length);
     assert.deepEqual(await page.locator('#landscape .scape-systems .entity b').allTextContents(), fleet.systems.map((system) => system.slug));
     assert.equal(await page.locator('#landscape .entity .chip').count(), fleet.systems.filter((system) => system.kitBuilt).length);
-    assert.deepEqual(await page.locator('#landscape .rel').allTextContents(), [
+    assert.deepEqual(await page.locator('#landscape .scape-rel').allTextContents(), [
       '▶reads the wall', '▼reads every system, and changes nothing', '▼every system is released by Octopus Deploy',
       `▼${fleet.systems.filter((system) => system.kitBuilt).length} of ${fleet.systems.length} pull the delivery standard`, '▶reads, at every deployment',
     ]);
@@ -486,6 +486,16 @@ test('a system is drawn as a project group: each project, and a tile, the releas
     ]);
     assert.equal(await one.locator('td.rel.same a.num').first().getAttribute('href'), 'https://octopus.example/web/tdd');
     assert.equal(await one.locator('table.releases').isVisible(), true);
+    // Each environment's name stands above its own tiles: a cell of the grid is a cell of a table, in one row.
+    const columns = await one.locator('table.releases').evaluate((table) => {
+      const left = (cell) => Math.round(cell.getBoundingClientRect().left);
+      const top = (cell) => Math.round(cell.getBoundingClientRect().top);
+      const rows = [...table.rows];
+      return { heads: [...rows[0].cells].map(left), first: [...rows[1].cells].map(left), tops: [...rows[1].cells].map(top), shown: [...rows[1].cells].map((cell) => document.defaultView.getComputedStyle(cell).display) };
+    });
+    assert.deepEqual(columns.heads, columns.first, 'the heads and the cells below them start at the same place');
+    assert.equal(new Set(columns.tops).size, 1, 'a project is one row');
+    assert.deepEqual([...new Set(columns.shown)], ['table-cell']);
     // The tiles are Octopus's: green for what succeeded, red for what failed, none where nothing is.
     const paint = (kind) => one.locator(`td.rel.${kind} .status`).first().evaluate((status) => document.defaultView.getComputedStyle(status).backgroundColor);
     assert.equal(await paint('same'), 'rgb(0, 171, 98)');
