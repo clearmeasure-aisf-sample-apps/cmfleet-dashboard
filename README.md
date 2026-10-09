@@ -55,8 +55,10 @@ No box of the landscape does nothing (Jeffrey Palermo, 2026-10-08: "whatever the
 click and zoom into the view of that resource"). Octopus Deploy opens the instance, the delivery standard and the
 policies open their repositories on GitHub, the fleet's box opens the registry, the operators' box the open findings,
 and the frame of the subscription the Azure portal. These open in a new tab: Octopus, GitHub and Azure do not let
-themselves be shown inside another page. The portal opens at the reader's resource groups, because the fleet's public
-data does not name the subscription; `fleet.azurePortal` in `fleet.json` would lead to the subscription itself. A
+themselves be shown inside another page. The portal opens at the subscription the systems run in, which the
+fleet's public data names since 2026-10-08 (`fleet.azurePortal`; the kit's decision 0027), and a system's card leads
+to each of its resource groups there ("Azure: rg-...", under "cost, links"); a system the data names no group for
+leads to the subscription. Data without that address opens the portal at the reader's resource groups. A
 system that names neither a runtime view nor a dashboard opens its space in Octopus.
 
 A click on a system's box in the landscape, or on its name on its tile, zooms into that system's runtime view (its own

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  AZURE_PORTAL, boxLinks, hostOf,
+  AZURE_PORTAL, azureLinks, boxLinks, hostOf,
   FINISHED_MINUTES, STALE_AFTER_HOURS, ageHours, asked, behindReasons, counts, deploymentMarks, deploymentText, flightState, deploymentWord, displayState, findText, fleetFacts, formatAge, formatWhen,
   healthWord, isStale, limitShare, limitsInUse, matches, observed, parseUtc, prodEnvironments, prodRows, releaseGrid, releaseWord, serviceState, standing,
   standingSummary, systemDoor, systemLink, withoutSlug,
@@ -304,4 +304,20 @@ test('a system with nothing to zoom into leads to its space in Octopus, then to 
   assert.equal(systemDoor(system({ space: { url: 'https://acme.octopus.app/app#/Spaces-1' }, repositoryUrl: 'https://github.com/acme/demo-system' })), 'https://acme.octopus.app/app#/Spaces-1');
   assert.equal(systemDoor(system({ space: { url: '' }, repositoryUrl: 'https://github.com/acme/demo-system' })), 'https://github.com/acme/demo-system');
   assert.equal(systemDoor(system()), '');
+});
+
+test('a system leads to each of its resource groups in the portal, or to the subscription when none is named', () => {
+  const fleet = { azurePortal: 'https://portal.azure.com/#resource/subscriptions/1/resourceGroups' };
+  const groups = [
+    { group: 'rg-demo-nonprod', url: 'https://portal.azure.com/#resource/subscriptions/1/resourceGroups/rg-demo-nonprod/overview' },
+    { group: 'rg-demo-prod', url: 'https://portal.azure.com/#resource/subscriptions/1/resourceGroups/rg-demo-prod/overview' },
+  ];
+  assert.deepEqual(azureLinks(system({ azure: groups }), fleet), [
+    { text: 'Azure: rg-demo-nonprod', url: groups[0].url }, { text: 'Azure: rg-demo-prod', url: groups[1].url },
+  ]);
+  assert.deepEqual(azureLinks(system({ azure: [] }), fleet), [{ text: 'Azure subscription', url: fleet.azurePortal }]);
+  assert.deepEqual(azureLinks(system(), fleet), [{ text: 'Azure subscription', url: fleet.azurePortal }]);
+  assert.deepEqual(azureLinks(system({ azure: [{ group: 'rg-demo-prod', url: '' }] }), fleet), [{ text: 'Azure subscription', url: fleet.azurePortal }]);
+  assert.deepEqual(azureLinks(system(), {}), []);
+  assert.deepEqual(azureLinks(system(), undefined), []);
 });
