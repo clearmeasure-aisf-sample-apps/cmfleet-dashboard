@@ -72,6 +72,20 @@ that follows the kit's templates says "pulls the standard". The arrows of the C4
 between the rows, because ten arrows that all end in the same two boxes say less than "every system is released by
 Octopus Deploy".
 
+A system's box says more than its name (Jeffrey Palermo, 2026-10-09, to seven suggestions: "I approve. Do them all"):
+
+| In the box | From |
+|---|---|
+| What it is made of ("Container Apps", "AKS + Argo CD") | `madeOf` of the fleet's data: the system's own statement in the registry, or what its registry file implies |
+| A tile for tdd, uat and prod, in Octopus's colours | The worst of what the system's projects last did there: red where one failed, orange where one is behind the first environment, green otherwise, dashed where nothing is deployed |
+| "prod 2.4.73 · 3 h" | The newest deployment to production, or the one that failed |
+| "Behind the standard: 2 standards", "Needs attention: 1 broken" | The state in words with a count, only where the system is not as declared, so colour is not the one thing that says it |
+| "13 of 16 standards · 4.18 USD" | How many of the fleet's standards it meets, and the month's cost |
+| A dot at the top left | The answer of the system's health address, asked from the reader's browser just now: green for healthy, red for not; no dot where the system names no address or is asleep |
+| "pulls the standard" | It follows the kit's templates |
+
+A line the fleet read nothing for is left out.
+
 No box of the landscape does nothing (Jeffrey Palermo, 2026-10-08: "whatever the box represents I want to be able to
 click and zoom into the view of that resource"). Octopus Deploy opens the instance, the delivery standard and the
 policies open their repositories on GitHub, the fleet's box opens the registry, the operators' box the open findings,

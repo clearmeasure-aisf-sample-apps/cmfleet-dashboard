@@ -257,10 +257,57 @@ export function systemDoor(system) {
   return system.space?.url || system.repositoryUrl || '';
 }
 
+// What a system's box says beyond its name (decision 0030 of the kit). Each is a line or a row of tiles, short
+// enough for a box, and nothing where the fleet read nothing.
+
+// Where the system stands in each of its environments: the worst of what its projects' last deployments there say.
+// Failed comes before behind the first environment, and that before deployed; none where no project has a release.
+const WORSE = ['none', 'same', 'behind', 'failed'];
+
+export function environmentTiles(system) {
+  const grid = releaseGrid(system);
+  return grid.names.map((name, column) => {
+    const kind = grid.rows.reduce((worst, row) => (WORSE.indexOf(row.cells[column].kind) > WORSE.indexOf(worst) ? row.cells[column].kind : worst), 'none');
+    return { name, kind, word: `${name}: ${releaseWord({ kind }, grid.names[0])}` };
+  });
+}
+
+// What production runs and since when: its newest deployment, or the one that failed where one did.
+export function prodLine(system, now) {
+  const rows = prodRows(system, now);
+  const row = rows.find((one) => one.failed) || rows[0];
+  if (!row) return '';
+  if (row.failed) return `${row.environment} ${row.release} ${row.state.toLowerCase()}`;
+  return row.age === null ? `${row.environment} ${row.release}` : `${row.environment} ${row.release} · ${formatAge(row.age)}`;
+}
+
+// The state in words, with a count, for a system that is not as declared: colour is then not the only thing that
+// says it.
+export function stateLine(system, stale) {
+  const state = displayState(system, stale);
+  if (state === 'ok') return '';
+  if (state === 'behind') {
+    const reasons = behindReasons(system).length;
+    return reasons ? `${STATE_WORDS.behind}: ${reasons} ${reasons === 1 ? 'standard' : 'standards'}` : STATE_WORDS.behind;
+  }
+  if (state === 'attention') {
+    const count = counts(system);
+    return count.broken + count.critical ? `${STATE_WORDS.attention}: ${count.broken + count.critical} broken` : STATE_WORDS.attention;
+  }
+  return STATE_WORDS[state];
+}
+
+export function standardsLine(system) {
+  const rows = standing(system);
+  return rows.length ? `${rows.filter((row) => row.status === 'met').length} of ${rows.length} standards` : '';
+}
+
+export const costLine = (system) => (system.cost ? `${system.cost.monthToDate} ${system.cost.currency}` : '');
+
 // The landscape as the page draws it: who watches, the fleet's oversight, the subscription with every system in it,
 // and what the systems share. Each box says what it is, the state of what it stands for where it has one, and where
 // it leads: a system zooms into its own dashboard (zoom), everything else opens what it stands for (open).
-export function landscape(data, stale) {
+export function landscape(data, stale, now) {
   const links = boxLinks(data);
   const systems = data.systems.map((system) => ({
     name: system.slug,
@@ -270,6 +317,13 @@ export function landscape(data, stale) {
     zoom: systemLink(system),
     open: systemLink(system) ? '' : systemDoor(system),
     pulls: Boolean(system.kitBuilt),
+    madeOf: system.madeOf || '',
+    tiles: environmentTiles(system),
+    runs: prodLine(system, now),
+    says: stateLine(system, stale),
+    small: [standardsLine(system), costLine(system)].filter(Boolean).join(' · '),
+    // A system that is switched off on purpose is not asked for its health.
+    health: Boolean(system.health) && !system.asleep,
   }));
   const services = (data.shared?.services || []).map((service) => ({
     name: service.id, title: service.name, text: service.detail || '', state: serviceState(service, stale), zoom: '', open: links[service.id] || '',

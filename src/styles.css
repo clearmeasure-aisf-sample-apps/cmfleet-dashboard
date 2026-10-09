@@ -175,6 +175,24 @@ a.entity:hover { text-decoration: none; filter: brightness(1.25); }
 a.entity:focus-visible, a.cluster-name:focus-visible { outline: 3px solid var(--cm-light-blue); outline-offset: 2px; }
 .entity b { font-family: var(--display); font-size: 1.1rem; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
 .entity .what { font-size: .84rem; color: var(--cm-light-blue); overflow-wrap: anywhere; }
+/* What a system's box says beyond its name: what it is made of, a tile for each environment in Octopus's colours,
+   what production runs, its state in words where it is not as declared, and two numbers. */
+.entity .made { font-size: .74rem; color: var(--muted); }
+.entity .envs { display: flex; justify-content: center; gap: 10px; margin-top: 6px; }
+.entity .env { display: grid; justify-items: center; gap: 2px; font-size: .64rem; letter-spacing: .05em; text-transform: uppercase; color: var(--cm-light-blue); }
+.entity .env i { width: 22px; height: 22px; border-radius: 3px; background: var(--ok) var(--tick) center / 16px no-repeat; }
+.entity .env.behind i { background-color: var(--attn); }
+.entity .env.failed i { background-color: var(--crit-fill); background-image: var(--cross); }
+.entity .env.none i { background: none; border: 1px dashed var(--cm-light-blue); }
+.entity .runs { margin-top: 2px; font-size: .86rem; font-weight: 700; }
+.entity .says { font-size: .8rem; font-weight: 500; }
+.entity[data-state="attention"] .says { color: var(--attn); }
+.entity[data-state="behind"] .says { color: var(--behind); }
+.entity[data-state="critical"] .says { color: var(--crit); }
+.entity .small { font-size: .74rem; color: var(--cm-light-blue); }
+.entity .pulse { position: absolute; top: 8px; left: 8px; width: 10px; height: 10px; border-radius: 50%; background: var(--line-strong); }
+.entity .pulse[data-word="healthy"], .entity .pulse[data-word="responding"] { background: var(--ok); }
+.entity .pulse[data-word="not"], .entity .pulse[data-word="answers"] { background: var(--crit-fill); }
 .entity .chip { margin-top: 2px; padding: 1px 8px; border: 1px solid var(--cm-primary); border-radius: 10px; font-size: .72rem; color: var(--cm-light-blue); }
 .entity.external { background: var(--cm-deep); border-color: var(--line-strong); }
 .entity.person { background: var(--cm-primary); border-color: var(--cm-primary); }
@@ -189,7 +207,7 @@ a.entity:focus-visible, a.cluster-name:focus-visible { outline: 3px solid var(--
 .cluster header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
 .cluster-name { font-family: var(--display); font-weight: 700; font-size: 1.05rem; color: var(--ink); }
 .cluster header .what { color: var(--muted); font-size: .86rem; }
-.scape-systems { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: 12px; }
+.scape-systems { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 12px; }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 22px; color: var(--muted); font-size: .85rem; }
 .key { display: inline-flex; align-items: center; gap: 8px; }
 .swatch { width: 26px; height: 14px; background: var(--box); border: 1px solid var(--line-strong); border-radius: 2px; }
@@ -198,6 +216,7 @@ a.entity:focus-visible, a.cluster-name:focus-visible { outline: 3px solid var(--
 .swatch.critical { border: 4px solid var(--crit-fill); }
 .swatch.not-read { border: 2px dashed var(--ink); }
 .swatch.asleep { background: var(--line); border-style: dotted; }
+.swatch.pulse { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); border-color: var(--ok); }
 .swatch.flight { width: 14px; border-radius: 50%; background: var(--flight); border-color: var(--bg); }
 
 .services { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 12px; }
