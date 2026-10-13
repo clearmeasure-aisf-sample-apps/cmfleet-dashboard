@@ -120,7 +120,8 @@ function drawLandscape(data, facts, now) {
 const titles = (findings, slug) => el('ul', {}, findings.map((finding) => el('li', { text: withoutSlug(finding.title, slug) })));
 
 // A system as Octopus draws a project group: each project, and in each environment a tile for how its last
-// deployment ended, the release and when. A release behind the first environment's keeps its colour for that.
+// deployment ended, the release and when. A release that waits to be promoted is hatched where it is, and the
+// environment it waits for is as it was deployed.
 function drawReleases(system) {
   const grid = releaseGrid(system);
   if (!grid.rows.length) return { count: 0, grid: el('p', { class: 'sub', text: 'Nothing read in any environment.' }) };
@@ -129,7 +130,7 @@ function drawReleases(system) {
     table.append(el('tr', {}, [
       el('td', { class: 'project' }, [el('span', { class: 'cell' }, [el('span', { class: 'icon', 'aria-hidden': 'true' }), el('span', { class: 'what', text: row.project })])]),
       ...row.cells.map((cell) => el('td', { class: `rel ${cell.kind}`, title: cellTitle(cell), 'data-cell': cellKey(row.project, cell.name) }, [el('span', { class: 'cell' }, [
-        el('span', { class: 'status', role: 'img', 'aria-label': releaseWord(cell, grid.names[0]), 'data-stands': releaseWord(cell, grid.names[0]) }),
+        el('span', { class: 'status', role: 'img', 'aria-label': releaseWord(cell), 'data-stands': releaseWord(cell) }),
         el('span', { class: 'release' }, [
           cell.url ? el('a', { class: 'num', href: cell.url, text: cell.text }) : el('span', { class: 'num', text: cell.text }),
           cellWhen(cell) ? el('span', { class: 'when', text: cellWhen(cell) }) : null,

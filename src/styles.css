@@ -10,7 +10,8 @@ img, svg { max-width: 100%; }
 /* Layout: a bar with the logo and the fleet's name, the sections of the page beside it, then the fleet's counts, the
    landscape, one card per system with what each of its projects runs in each environment, and what every system
    shares. A deployment that succeeded wears Octopus's green tile. A system's state keeps its own colours: none for
-   as declared, orange for what stopped working, yellow for behind the standard, red where production is affected. */
+   as declared, orange for what stopped working, yellow for behind the standard, red where production is affected.
+   Green with diagonal lines: a release that waits to be promoted to the next environment. */
 :root {
   /* Octopus Deploy, dark: navy surfaces, one line colour, blue for links, green for what succeeded. */
   --bg: #111a23; --bar: #1f303f; --side: #16212c; --surface: #111a23; --raised: #1f303f; --hover: #24394b;
@@ -21,6 +22,7 @@ img, svg { max-width: 100%; }
      the sky blue is the logo's own. Its headings are set in Futura, with Jost as the face a browser can load. */
   --cm-primary: #0085ca; --cm-blue: #004b87; --cm-deep: #043e6c; --cm-light-blue: #cfeaff; --cm-sky: #24abe1; --cm-yellow: #eecb1a;
   --box: var(--cm-blue); --box-ink: #ffffff;
+  --hatch: repeating-linear-gradient(135deg, transparent 0 3px, rgb(0 0 0 / .45) 3px 5px);
   --behind: var(--cm-yellow); --behind-bg: #37321a; --flight: var(--cm-sky);
   --display: Jost, Futura, "Futura PT", "Century Gothic", "Trebuchet MS", Roboto, "Segoe UI", Arial, sans-serif;
   --body: Roboto, "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
@@ -130,7 +132,7 @@ td.rel.none .status { background: none; border: 1px dashed var(--line-strong); }
 td.rel .release { display: grid; }
 td.rel .release .num { font-weight: 700; color: var(--ink); }
 td.rel .release .when { color: var(--muted); font-size: .85rem; }
-td.rel.behind .release .num { color: var(--attn); }
+td.rel.waits .status { background: var(--tick) center / 22px no-repeat, var(--hatch), var(--ok); }
 td.rel.failed .release .num { color: var(--crit); }
 td.rel.none .release .num { color: var(--muted); font-weight: 400; }
 
@@ -181,7 +183,9 @@ a.entity:focus-visible, a.cluster-name:focus-visible { outline: 3px solid var(--
 .entity .envs { display: flex; justify-content: center; gap: 10px; margin-top: 6px; }
 .entity .env { display: grid; justify-items: center; gap: 2px; font-size: .64rem; letter-spacing: .05em; text-transform: uppercase; color: var(--cm-light-blue); }
 .entity .env i { width: 22px; height: 22px; border-radius: 3px; background: var(--ok) var(--tick) center / 16px no-repeat; }
-.entity .env.behind i { background-color: var(--attn); }
+/* A release that waits to be promoted: nothing is wrong, so it is green, with diagonal lines over it. The mark is
+   on the environment that holds the release, not on the one it waits for. */
+.entity .env.waits i { background: var(--tick) center / 16px no-repeat, var(--hatch), var(--ok); }
 .entity .env.failed i { background-color: var(--crit-fill); background-image: var(--cross); }
 .entity .env.none i { background: none; border: 1px dashed var(--cm-light-blue); }
 .entity .runs { margin-top: 2px; font-size: .86rem; font-weight: 700; }
@@ -213,6 +217,7 @@ a.entity:focus-visible, a.cluster-name:focus-visible { outline: 3px solid var(--
 .swatch { width: 26px; height: 14px; background: var(--box); border: 1px solid var(--line-strong); border-radius: 2px; }
 .swatch.attention { border: 4px solid var(--attn); }
 .swatch.behind { border: 3px solid var(--behind); }
+.swatch.waits { background: var(--hatch), var(--ok); border-color: var(--ok); }
 .swatch.critical { border: 4px solid var(--crit-fill); }
 .swatch.not-read { border: 2px dashed var(--ink); }
 .swatch.asleep { background: var(--line); border-style: dotted; }

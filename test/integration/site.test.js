@@ -278,14 +278,18 @@ test('a system\'s box says what it is made of, where it stands in each environme
     const box = page.locator(`#landscape .entity[data-box="${fleet.systems[0].slug}"]`);
     assert.equal(await box.locator('.made').textContent(), 'Container Apps');
     assert.deepEqual(await box.locator('.env').evaluateAll((all) => all.map((one) => [one.textContent, one.className, one.getAttribute('title')])), [
-      ['tdd', 'env same', 'tdd: deployed'], ['uat', 'env behind', 'uat: deployed, behind tdd'], ['prod', 'env behind', 'prod: deployed, behind tdd'],
+      ['tdd', 'env waits', 'tdd: deployed, waits for promotion to uat'], ['uat', 'env same', 'uat: deployed'], ['prod', 'env same', 'prod: deployed'],
     ]);
     assert.equal(await box.locator('.runs').textContent(), 'prod 2.4.42 · 3 h');
     assert.equal(await box.locator('.says').textContent(), 'Behind the standard: 2 standards');
     assert.equal(await box.locator('.small').textContent(), '2 of 3 standards · 1.74 USD');
     const tile = (kind) => box.locator(`.env.${kind} i`).first().evaluate((one) => document.defaultView.getComputedStyle(one).backgroundColor);
     assert.equal(await tile('same'), 'rgb(0, 171, 98)');
-    assert.equal(await tile('behind'), 'rgb(245, 141, 58)');
+    // A release that waits to be promoted is green too, with diagonal lines over it: nothing stopped working.
+    assert.equal(await tile('waits'), 'rgb(0, 171, 98)');
+    assert.match(await box.locator('.env.waits i').first().evaluate((one) => document.defaultView.getComputedStyle(one).backgroundImage), /repeating-linear-gradient/);
+    assert.doesNotMatch(await box.locator('.env.same i').first().evaluate((one) => document.defaultView.getComputedStyle(one).backgroundImage), /repeating-linear-gradient/);
+    assert.equal(await box.locator('.env.behind').count(), 0);
     // A system as declared says nothing about its state, and a line the fleet read nothing for is not drawn.
     const quiet = page.locator(`#landscape .entity[data-box="${fleet.systems[1].slug}"]`);
     assert.deepEqual([await quiet.locator('.says').count(), await quiet.locator('.made').count(), await quiet.locator('.small').count()], [0, 0, 0]);
@@ -477,14 +481,16 @@ test('a system is drawn as a project group: each project, and a tile, the releas
       cell.className, cell.querySelector('.status').getAttribute('aria-label'), cell.querySelector('.num').textContent, cell.querySelector('.when')?.textContent || '',
     ]));
     assert.deepEqual(cells, [
-      ['rel same', 'deployed', '2.4.43', 'Oct 6, 2026 11:28 PM'],
-      ['rel behind', 'deployed, behind tdd', '2.4.42', 'Oct 6, 2026 4:02 PM'],
+      ['rel waits', 'deployed, waits for promotion to uat', '2.4.43', 'Oct 6, 2026 11:28 PM'],
+      ['rel same', 'deployed', '2.4.42', 'Oct 6, 2026 4:02 PM'],
       ['rel failed', 'failed', '2.4.42 failed', 'Oct 6, 2026 4:40 PM'],
       ['rel same', 'deployed', '1.0.7', 'Oct 6, 2026 8:00 PM'],
       ['rel none', 'not deployed', 'none', ''],
       ['rel none', 'not deployed', 'none', ''],
     ]);
-    assert.equal(await one.locator('td.rel.same a.num').first().getAttribute('href'), 'https://octopus.example/web/tdd');
+    assert.equal(await one.locator('td.rel.waits a.num').first().getAttribute('href'), 'https://octopus.example/web/tdd');
+    assert.match(await one.locator('td.rel.waits .status').first().evaluate((status) => document.defaultView.getComputedStyle(status).backgroundImage), /repeating-linear-gradient/);
+    assert.equal(await one.locator('td.rel.waits').first().getAttribute('title'), 'finished 2026-10-07 04:28 UTC; waits for promotion to uat');
     assert.equal(await one.locator('table.releases').isVisible(), true);
     // Each environment's name stands above its own tiles: a cell of the grid is a cell of a table, in one row.
     const columns = await one.locator('table.releases').evaluate((table) => {
