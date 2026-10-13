@@ -6,7 +6,7 @@ import {
   healthWord, isStale, limitShare, limitsInUse, matches, observed, parseUtc, prodEnvironments, prodRows, releaseGrid, releaseWord, serviceState, standing,
   standingSummary, systemDoor, systemLink, withoutSlug,
   ACTIVITY_LINES, FLEET_FRESH_MINUTES, IN_PROGRESS, activityLines, cellFlights, cellKey, cellTitle, cellWhen, fleetMarks, fleetText, flightLine, flightMarks, flightWord, formatUntil, freezeLines, instanceLine,
-  lastLine, liveMarks, shortProject, tileFlights,
+  isNewer, lastLine, liveMarks, shortProject, tileFlights,
 } from '../../src/model.js';
 
 const now = new Date('2026-10-07T12:00:00Z');
@@ -115,7 +115,7 @@ test('a production deployment with no time sorts last', () => {
   assert.equal(rows[1].age, null);
 });
 
-test('the release grid says where an environment is behind the first, failed or empty', () => {
+test('the release grid says where a release waits to be promoted, and where an environment failed or is empty', () => {
   const grid = releaseGrid(system({ projects: [
     project('web', { tdd: ['2.0', 'Success', 'x'], uat: ['1.9', 'Success', 'x'], prod: ['1.9', 'Canceled', 'x'] }),
     project('api', { tdd: ['3.1', 'Success', 'x'], uat: ['3.1', 'Success', 'x'] }),
@@ -123,7 +123,7 @@ test('the release grid says where an environment is behind the first, failed or 
   ] }));
   assert.deepEqual(grid.names, ['tdd', 'uat', 'prod']);
   assert.deepEqual(grid.rows.map((row) => row.project), ['web', 'api']);
-  assert.deepEqual(grid.rows[0].cells.map((cell) => [cell.kind, cell.text]), [['same', '2.0'], ['behind', '1.9'], ['failed', '1.9 canceled']]);
+  assert.deepEqual(grid.rows[0].cells.map((cell) => [cell.kind, cell.text]), [['waits', '2.0'], ['same', '1.9'], ['failed', '1.9 canceled']]);
   assert.deepEqual(grid.rows[1].cells.map((cell) => cell.kind), ['same', 'same', 'none']);
 });
 
@@ -272,8 +272,8 @@ test('a cell of the release grid has words for a reader who does not see its til
     project('web', { tdd: ['2.0', 'Success', 'x'], uat: ['1.9', 'Success', 'x'], prod: ['1.9', 'Failed', 'x'] }),
     project('api', { tdd: ['3.1', 'Success', 'x'] }),
   ] }));
-  assert.deepEqual(grid.rows[0].cells.map((cell) => releaseWord(cell, grid.names[0])), ['deployed', 'deployed, behind tdd', 'failed']);
-  assert.deepEqual(grid.rows[1].cells.map((cell) => releaseWord(cell, grid.names[0])), ['deployed', 'not deployed', 'not deployed']);
+  assert.deepEqual(grid.rows[0].cells.map((cell) => releaseWord(cell)), ['deployed, waits for promotion to uat', 'deployed', 'failed']);
+  assert.deepEqual(grid.rows[1].cells.map((cell) => releaseWord(cell)), ['deployed', 'not deployed', 'not deployed']);
 });
 
 test('a system is found by its name, what it is, its owner or a project, whatever the case', () => {
@@ -371,8 +371,8 @@ test('a system\'s box says where it stands in each environment: the worst of its
     project('never', { tdd: ['', '', ''] }),
   ] });
   assert.deepEqual(environmentTiles(one), [
-    { name: 'tdd', kind: 'same', word: 'tdd: deployed' },
-    { name: 'uat', kind: 'behind', word: 'uat: deployed, behind tdd' },
+    { name: 'tdd', kind: 'waits', word: 'tdd: deployed, waits for promotion to uat' },
+    { name: 'uat', kind: 'same', word: 'uat: deployed' },
     { name: 'prod', kind: 'failed', word: 'prod: failed' },
   ]);
   assert.deepEqual(environmentTiles(system()).map((tile) => tile.kind), ['none', 'none', 'none']);
@@ -440,8 +440,8 @@ test('a release whose deployment had not ended when the fleet read it says so, i
   ] }] });
   const cells = releaseGrid(one).rows[0].cells;
   assert.deepEqual(cells[0], { name: 'tdd', kind: 'progress', text: '2.1', url: 'https://octopus.example/t', finished: '', started: '2026-10-07 11:40' });
-  assert.deepEqual(cells[1], { name: 'uat', kind: 'behind', text: '2.0', url: '', finished: '2026-10-07 09:00' });
-  assert.equal(releaseWord(cells[0], 'tdd'), IN_PROGRESS);
+  assert.deepEqual(cells[1], { name: 'uat', kind: 'same', text: '2.0', url: '', finished: '2026-10-07 09:00' });
+  assert.equal(releaseWord(cells[0]), IN_PROGRESS);
   assert.equal(cellWhen(cells[0], 'UTC'), 'in progress when read');
   assert.equal(cellWhen(cells[1], 'UTC'), 'Oct 7, 2026 9:00 AM');
   assert.equal(cellWhen({ kind: 'same', finished: '' }, 'UTC'), '');
@@ -451,7 +451,7 @@ test('a release whose deployment had not ended when the fleet read it says so, i
   assert.equal(cellTitle({ kind: 'none', finished: '' }), '');
   assert.deepEqual(environmentTiles(one), [
     { name: 'tdd', kind: 'progress', word: 'tdd: in progress when read' },
-    { name: 'uat', kind: 'behind', word: 'uat: deployed, behind tdd' },
+    { name: 'uat', kind: 'same', word: 'uat: deployed' },
     { name: 'prod', kind: 'progress', word: 'prod: in progress when read' },
   ]);
   assert.equal(prodLine(one, now), 'prod 2.1 · in progress when read');
@@ -650,4 +650,27 @@ test('the Octopus instance says what it is doing beside its count against the ca
   const data = { fleet: {}, systems: [], shared: { services: [service({ executing: 2, queued: 0, waiting: 1, cap: 20 }), { id: 'kit', name: 'Delivery standard', state: 'ok', detail: '' }] } };
   assert.deepEqual(landscape(data, false, now).services.map((one) => one.acts), ['2 running · 1 waits for a person', undefined]);
   assert.deepEqual(landscape(data, true, now).services.map((one) => 'acts' in one), [false, false]);
+});
+
+test('a release the next environment does not have yet waits where it is, and the next environment is not marked', () => {
+  const cellsOf = (releases) => releaseGrid(system({ projects: [project('web', releases)] })).rows[0].cells;
+  const kinds = (releases) => cellsOf(releases).map((cell) => [cell.kind, cell.next || ''].join(':').replace(/:$/, ''));
+  // tdd is ahead of uat and prod: tdd waits for uat, and nothing is wrong with uat or prod.
+  assert.deepEqual(kinds({ tdd: ['1.0.58', 'Success', 'x'], uat: ['1.0.35', 'Success', 'x'], prod: ['1.0.35', 'Success', 'x'] }), ['waits:uat', 'same', 'same']);
+  // The newest release is in uat: uat waits for prod.
+  assert.deepEqual(kinds({ tdd: ['2.0', 'Success', 'x'], uat: ['2.0', 'Success', 'x'], prod: ['1.9', 'Success', 'x'] }), ['same', 'waits:prod', 'same']);
+  // Each a step ahead of the next: both wait.
+  assert.deepEqual(kinds({ tdd: ['3.0', 'Success', 'x'], uat: ['2.0', 'Success', 'x'], prod: ['1.0', 'Success', 'x'] }), ['waits:uat', 'waits:prod', 'same']);
+  // A project that is in tdd and prod only waits for prod; one that is in tdd only waits for nothing.
+  assert.deepEqual(kinds({ tdd: ['2.0', 'Success', 'x'], prod: ['1.0', 'Success', 'x'] }), ['waits:prod', 'none', 'same']);
+  assert.deepEqual(kinds({ tdd: ['2.0', 'Success', 'x'] }), ['same', 'none', 'none']);
+  // A fix that went ahead: production holds the newer release, so nothing waits before it.
+  assert.deepEqual(kinds({ tdd: ['1.9', 'Success', 'x'], uat: ['1.9', 'Success', 'x'], prod: ['1.10', 'Success', 'x'] }), ['same', 'same', 'same']);
+  assert.equal(cellTitle(cellsOf({ tdd: ['2.0', 'Success', '2026-10-07 10:00'], uat: ['1.9', 'Success', 'x'] })[0]), 'finished 2026-10-07 10:00 UTC; waits for promotion to uat');
+  assert.equal(isNewer('2.4.43', '2.4.42'), true);
+  assert.equal(isNewer('1.10', '1.9'), true);
+  assert.equal(isNewer('1.9', '1.10'), false);
+  assert.equal(isNewer('2.0', '2.0'), false);
+  assert.equal(isNewer('main-abc', 'main-def'), true);
+  assert.equal(isNewer('', '1.0'), false);
 });

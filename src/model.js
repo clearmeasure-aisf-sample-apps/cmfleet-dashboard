@@ -151,44 +151,67 @@ export function prodRows(system, now) {
 }
 
 // How a release stands in its environment: failed, in progress (its deployment had not ended when the fleet read it:
-// the release is not there yet, and has no time), behind the first environment's release, or the same.
-function cellKind(environment, first) {
+// the release is not there yet, and has no time), or deployed. Whether a deployed release waits to be promoted is
+// said afterwards, beside the next environment (releaseGrid).
+function cellKind(environment) {
   if (FAILED.includes(environment.state)) return 'failed';
   if (environment.inProgress) return 'progress';
-  return first && environment.release !== first ? 'behind' : 'same';
+  return 'same';
 }
 
-// The release of every project in every environment, and how it stands beside the first environment's.
+// True when release a is newer than release b: by their numbers, part by part ("2.4.43" after "2.4.42", "1.10" after
+// "1.9"); two releases that are not numbers all through are compared as different, and the first counts as newer.
+export function isNewer(a, b) {
+  if (!a || !b || a === b) return false;
+  const parts = (text) => String(text).split(/[.+-]/);
+  const [one, two] = [parts(a), parts(b)];
+  for (let index = 0; index < Math.max(one.length, two.length); index += 1) {
+    const [left, right] = [one[index] ?? '0', two[index] ?? '0'];
+    if (!/^\d+$/.test(left) || !/^\d+$/.test(right)) return true;
+    if (Number(left) !== Number(right)) return Number(left) > Number(right);
+  }
+  return false;
+}
+
+// The release of every project in every environment. A release that the next environment does not have yet waits
+// to be promoted (kind "waits", with the name of that environment): the environment that holds it is the one to
+// look at, and nothing is wrong with the one after it, which is as it was deployed (Jeffrey Palermo, 2026-10-13: a
+// test environment is ahead of production most of the time, so marking production for it marks it always).
 export function releaseGrid(system) {
   const names = system.environments.map((environment) => environment.name.toLowerCase());
   const rows = [];
   for (const project of system.projects) {
     const byName = new Map(project.environments.map((environment) => [environment.name.toLowerCase(), environment]));
     if (![...byName.values()].some((environment) => environment.release)) continue;
-    const first = byName.get(names[0])?.release || '';
-    rows.push({
-      project: project.name,
-      cells: names.map((name) => {
-        const environment = byName.get(name);
-        if (!environment?.release) return { name, kind: 'none', text: 'none', url: '', finished: '' };
-        const kind = cellKind(environment, first);
-        const text = kind === 'failed' ? `${environment.release} ${environment.state.toLowerCase()}` : environment.release;
-        return { name, kind, text, url: environment.url || '', finished: environment.finished || '', ...(kind === 'progress' ? { started: environment.started || '' } : {}) };
-      }),
+    const cells = names.map((name) => {
+      const environment = byName.get(name);
+      if (!environment?.release) return { name, kind: 'none', text: 'none', url: '', finished: '' };
+      const kind = cellKind(environment);
+      const text = kind === 'failed' ? `${environment.release} ${environment.state.toLowerCase()}` : environment.release;
+      return { name, kind, text, url: environment.url || '', finished: environment.finished || '', ...(kind === 'progress' ? { started: environment.started || '' } : {}) };
     });
+    // The next environment that has a release of this project at all: a deployed release that is newer than the one
+    // there waits for it. Not while that environment is being deployed to (it is on its way), and not when it holds
+    // the newer release (a fix that went ahead): then nothing waits here.
+    cells.forEach((cell, column) => {
+      if (cell.kind !== 'same') return;
+      const next = names.slice(column + 1).find((name) => byName.get(name)?.release);
+      if (next && !byName.get(next).inProgress && isNewer(byName.get(cell.name).release, byName.get(next).release)) Object.assign(cell, { kind: 'waits', next });
+    });
+    rows.push({ project: project.name, cells });
   }
   return { names, rows };
 }
 
-// A cell of the release grid in words, for a reader who does not see its tile: deployed, deployed and behind the
-// first environment, failed, or nothing there.
+// A cell of the release grid in words, for a reader who does not see its tile: deployed, deployed and waiting to be
+// promoted to the next environment, failed, or nothing there.
 export const IN_PROGRESS = 'in progress when read';
 
-export function releaseWord(cell, first) {
+export function releaseWord(cell) {
   if (cell.kind === 'none') return 'not deployed';
   if (cell.kind === 'failed') return 'failed';
   if (cell.kind === 'progress') return IN_PROGRESS;
-  return cell.kind === 'behind' ? `deployed, behind ${first}` : 'deployed';
+  return cell.kind === 'waits' ? `deployed, waits for promotion${cell.next ? ` to ${cell.next}` : ''}` : 'deployed';
 }
 
 // Under a release in the grid: when its deployment finished, or that it had not when the fleet read it. Never
@@ -199,7 +222,8 @@ export function cellWhen(cell, timeZone) {
 
 export function cellTitle(cell) {
   if (cell.kind === 'progress') return cell.started ? `started ${cell.started} UTC, not finished when the fleet read it` : 'not finished when the fleet read it';
-  return cell.finished ? `finished ${cell.finished} UTC` : '';
+  const waits = cell.kind === 'waits' && cell.next ? `waits for promotion to ${cell.next}` : '';
+  return [cell.finished ? `finished ${cell.finished} UTC` : '', waits].filter(Boolean).join('; ');
 }
 
 // What a reader may type to find a system: its name, what it is, its owner and its projects.
@@ -283,14 +307,17 @@ export function systemDoor(system) {
 // enough for a box, and nothing where the fleet read nothing.
 
 // Where the system stands in each of its environments: the worst of what its projects' last deployments there say.
-// Failed comes before behind the first environment, and that before deployed; none where no project has a release.
-const WORSE = ['none', 'same', 'behind', 'progress', 'failed'];
+// Failed comes before a release that waits to be promoted, and that before deployed; none where no project has a
+// release. An environment waits when one of its projects' releases does, for the first environment that release
+// waits for.
+const WORSE = ['none', 'same', 'waits', 'progress', 'failed'];
 
 export function environmentTiles(system) {
   const grid = releaseGrid(system);
   return grid.names.map((name, column) => {
     const kind = grid.rows.reduce((worst, row) => (WORSE.indexOf(row.cells[column].kind) > WORSE.indexOf(worst) ? row.cells[column].kind : worst), 'none');
-    return { name, kind, word: `${name}: ${releaseWord({ kind }, grid.names[0])}` };
+    const next = kind === 'waits' ? grid.names.slice(column + 1).find((later) => grid.rows.some((row) => row.cells[column].kind === 'waits' && row.cells[column].next === later)) : '';
+    return { name, kind, word: `${name}: ${releaseWord({ kind, next })}` };
   });
 }
 
