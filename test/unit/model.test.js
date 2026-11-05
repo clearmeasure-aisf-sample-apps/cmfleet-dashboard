@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   AZURE_PORTAL, azureLinks, boxLinks, boxTitle, costLine, environmentTiles, hostOf, landscape, prodLine, standardsLine, stateLine,
   FINISHED_MINUTES, STALE_AFTER_HOURS, ageHours, asked, behindReasons, counts, deploymentMarks, deploymentText, flightState, deploymentWord, displayState, findText, fleetFacts, formatAge, formatWhen,
@@ -421,6 +422,19 @@ test('and its state in words with a count, its standards and its cost; nothing w
     ['', '', false, '', 'Asleep'],
     ['', '', false, '', ''],
   ]);
+});
+
+test('the fleet\'s data draws cmdemo1 without App Service and cmdemo2 still on App Service', () => {
+  const fleet = JSON.parse(readFileSync(new URL('../fixtures/fleet.json', import.meta.url), 'utf8'));
+  const drawn = landscape(fleet, false, now);
+  const made = (slug) => drawn.systems.find((system) => system.name === slug).madeOf;
+  const record = (slug) => fleet.systems.find((system) => system.slug === slug);
+  assert.equal(made('cmdemo1'), 'Container Apps');
+  assert.doesNotMatch(made('cmdemo1'), /App Service/);
+  assert.equal(record('cmdemo1').projects.some((project) => /app2-ui|App Service/i.test(project.name)), false);
+  assert.equal(JSON.stringify(record('cmdemo1')).includes('App Service'), false);
+  assert.equal(made('cmdemo2'), 'App Service');
+  assert.equal(record('cmdemo2').parts.some((part) => /App Service/.test(part.part)), true);
 });
 
 // Activity. The fleet read at 11:50, ten minutes before "now"; a later reading is made by moving "now".

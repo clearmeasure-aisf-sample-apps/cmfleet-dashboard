@@ -297,6 +297,22 @@ test('a system\'s box says what it is made of, where it stands in each environme
   });
 });
 
+// app2-ui, cmdemo1's App Service, is retired (cmdemo1-system#511). The ui Container App is what cmdemo1 is made
+// of. cmdemo2 stays on App Service, and its box still says so.
+test('cmdemo1 shows no App Service, and cmdemo2 still shows App Service', async () => {
+  const data = await dataWith();
+  await withPage(data, SOON_AFTER, async (page) => {
+    const box = (slug) => page.locator(`#landscape .entity[data-box="${slug}"]`);
+    const card = (slug) => tile(page, slug);
+    assert.equal(await box('cmdemo1').locator('.made').textContent(), 'Container Apps');
+    assert.doesNotMatch(await box('cmdemo1').textContent(), /App Service/);
+    assert.doesNotMatch(await card('cmdemo1').textContent(), /App Service|app2-ui/);
+    assert.deepEqual(await card('cmdemo1').locator('td.project').allTextContents(), ['cmdemo1-aisf', 'cmdemo1-system', 'cmdemo1-ui']);
+    assert.equal(await box('cmdemo2').locator('.made').textContent(), 'App Service');
+    assert.match(await box('cmdemo2').textContent(), /App Service/);
+  });
+});
+
 test('the name of a system zooms into its runtime view, its dashboard when it names none, and opens its Octopus space when it has neither', async () => {
   const data = await dataWith((fleet) => {
     Object.assign(fleet.systems[0], { dashboard: 'https://one.example/', runtimeView: 'https://one.example/#runtime/prod' });

@@ -425,6 +425,7 @@
       },
       "dashboard": "",
       "runtimeView": "",
+      "madeOf": "Container Apps",
       "health": "",
       "deployments": "https://raw.githubusercontent.com/clearmeasure-aisf-sample-apps/cmdemo1-system/deployments/deployments.json",
       "asleep": false,
@@ -469,35 +470,6 @@
               "finished": "2026-10-08 03:29",
               "signOff": "yes",
               "url": "https://clearmeasure.octopus.app/app#/Spaces-355/tasks/ServerTasks-11993989"
-            }
-          ]
-        },
-        {
-          "name": "cmdemo1-app2-ui",
-          "environments": [
-            {
-              "name": "tdd",
-              "release": "2.4.15",
-              "state": "Success",
-              "finished": "2026-10-08 02:34",
-              "signOff": "no",
-              "url": "https://clearmeasure.octopus.app/app#/Spaces-355/tasks/ServerTasks-11993729"
-            },
-            {
-              "name": "uat",
-              "release": "2.4.15",
-              "state": "Success",
-              "finished": "2026-10-08 02:41",
-              "signOff": "yes",
-              "url": "https://clearmeasure.octopus.app/app#/Spaces-355/tasks/ServerTasks-11993754"
-            },
-            {
-              "name": "prod",
-              "release": "2.4.15",
-              "state": "Success",
-              "finished": "2026-10-08 02:52",
-              "signOff": "yes",
-              "url": "https://clearmeasure.octopus.app/app#/Spaces-355/tasks/ServerTasks-11993790"
             }
           ]
         },
@@ -626,19 +598,19 @@
           "standard": "code metrics",
           "label": "Code metrics",
           "status": "met",
-          "text": "each of the 3 deployable(s) says where it serves them"
+          "text": "each of the 2 deployable(s) says where it serves them"
         },
         {
           "standard": "policy",
           "label": "Policies: sign-off, restore point, health check",
           "status": "met",
-          "text": "sign-off and restore point in 4 process(es) for prod; a health check after the update in 9 deployment(s) to an environment"
+          "text": "sign-off and restore point in 3 process(es) for prod; a health check after the update in 6 deployment(s) to an environment"
         },
         {
           "standard": "deployment",
           "label": "Deployments and their logs",
           "status": "met",
-          "text": "no failed deployment and no warning in 4 project(s)"
+          "text": "no failed deployment and no warning in 3 project(s)"
         },
         {
           "standard": "promotion",
@@ -662,7 +634,7 @@
           "standard": "workflow",
           "label": "Builds and workflows",
           "status": "met",
-          "text": "no workflow or commit status of 15 in cmdemo1-system, cmdemo1-workorders, cmdemo1-app2-ui, cmdemo1-aisf has been failed for 2 hours or more"
+          "text": "no workflow or commit status of 15 in cmdemo1-system, cmdemo1-workorders, cmdemo1-aisf has been failed for 2 hours or more"
         },
         {
           "standard": "schedules",
@@ -735,6 +707,7 @@
       },
       "dashboard": "https://agreeable-meadow-01d3c7010.1.azurestaticapps.net",
       "runtimeView": "https://agreeable-meadow-01d3c7010.1.azurestaticapps.net/#runtime/prod",
+      "madeOf": "App Service",
       "health": "https://cmdemo2-prod-ui-a2b5hkfrchg3ckew.z02.azurefd.net/_healthcheck",
       "deployments": "https://raw.githubusercontent.com/clearmeasure-aisf-sample-apps/cmdemo2-system/deployments/deployments.json",
       "asleep": false,
